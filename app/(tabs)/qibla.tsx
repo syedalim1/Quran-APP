@@ -14,35 +14,29 @@ import { ThemedText } from "../../components/ThemedText";
 import { Magnetometer } from "expo-sensors";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
-import {
-  Compass,
-  Navigation,
-  MapPin,
-  RotateCcw,
-  Info,
-  Clock,
-  ChevronDown,
-  ChevronUp,
-  Home,
-} from "lucide-react-native";
+import { Compass, Navigation, MapPin, RotateCcw, Info, Clock, ChevronDown, ChevronUp, Home } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { useThemeColor } from "../../hooks/useThemeColor";
+import { styles } from "../../src/styles/QiblaScreen.style";
+import LottieView from 'lottie-react-native';
+import { FontAwesome } from "@expo/vector-icons";
 
 const KAABA_LATITUDE = 21.4225;
 const KAABA_LONGITUDE = 39.8262;
-const QIBLA_ACCURACY_THRESHOLD = 5; // degrees
-const VIBRATION_PATTERN = [0, 50, 100, 50];
+const QIBLA_ACCURACY_THRESHOLD = 3; // Increased accuracy threshold
+const COMPASS_UPDATE_INTERVAL = 100; // More frequent updates
 
 export default function QiblaScreen() {
   // State variables
-  const [qiblaDirection, setQiblaDirection] = useState(0);
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [isCalibrating, setIsCalibrating] = useState(false);
-  const [distance, setDistance] = useState<number | null>(null);
-  const [accuracy, setAccuracy] = useState<"low" | "medium" | "high">("medium");
+  const [heading, setHeading] = useState(0);
+  const [qiblaDirection, setQiblaDirection] = useState(0);
+  const [accuracy, setAccuracy] = useState<number | null>(null);
+  const [isCalibrating, setIsCalibrating] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
+  const [distance, setDistance] = useState<number | null>(null);
   const [magneticDeclination, setMagneticDeclination] = useState(0);
   const [lastVibrationTime, setLastVibrationTime] = useState(0);
   const [prayerTimes, setPrayerTimes] = useState<any>(null);
@@ -236,7 +230,7 @@ export default function QiblaScreen() {
 
     const setupMagnetometer = async () => {
       setIsCalibrating(true);
-      Magnetometer.setUpdateInterval(100);
+      Magnetometer.setUpdateInterval(COMPASS_UPDATE_INTERVAL);
 
       subscription = Magnetometer.addListener((data) => {
         if (location) {
@@ -255,7 +249,7 @@ export default function QiblaScreen() {
               if (Platform.OS === 'ios') {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
               } else {
-                Vibration.vibrate(VIBRATION_PATTERN);
+                Vibration.vibrate([0, 50, 100, 50]);
               }
               setLastVibrationTime(now);
             }
@@ -298,11 +292,11 @@ export default function QiblaScreen() {
     
     // Determine accuracy based on magnitude (simplified)
     if (magnitude < 20) {
-      setAccuracy("low");
+      setAccuracy(1);
     } else if (magnitude < 40) {
-      setAccuracy("medium");
+      setAccuracy(2);
     } else {
-      setAccuracy("high");
+      setAccuracy(3);
     }
   };
 
@@ -409,11 +403,11 @@ export default function QiblaScreen() {
   // Get accuracy color
   const getAccuracyColor = () => {
     switch (accuracy) {
-      case "low":
+      case 1:
         return errorColor;
-      case "medium":
+      case 2:
         return secondaryColor;
-      case "high":
+      case 3:
         return "#2ECC71";
       default:
         return secondaryColor;
@@ -423,11 +417,11 @@ export default function QiblaScreen() {
   // Get accuracy text
   const getAccuracyText = () => {
     switch (accuracy) {
-      case "low":
+      case 1:
         return "Low Accuracy";
-      case "medium":
+      case 2:
         return "Medium Accuracy";
-      case "high":
+      case 3:
         return "High Accuracy";
       default:
         return "Medium Accuracy";
@@ -441,189 +435,128 @@ export default function QiblaScreen() {
       </ThemedText>
 
       {errorMsg ? (
-        <ThemedView style={styles.errorContainer}>
-          <ThemedText style={[styles.errorText, { color: errorColor }]}>
-            {errorMsg}
-          </ThemedText>
+        <View style={styles.errorContainer}>
+          <FontAwesome name="exclamation-triangle" size={50} color="#FF6B6B" />
+          <ThemedText style={styles.errorText}>{errorMsg}</ThemedText>
           <TouchableOpacity
-            style={[styles.button, { backgroundColor: primaryColor }]}
+            style={styles.button}
             onPress={() => {
               setErrorMsg(null);
               setIsCalibrating(true);
             }}
           >
-            <ThemedText style={styles.buttonText}>Retry</ThemedText>
+            <LinearGradient
+              colors={["#4A90E2", "#357ABD"]}
+              style={styles.button}
+            >
+              <ThemedText style={styles.buttonText}>Try Again</ThemedText>
+            </LinearGradient>
           </TouchableOpacity>
-        </ThemedView>
+        </View>
+      ) : isCalibrating ? (
+        <View style={styles.calibrationContainer}>
+          <FontAwesome name="compass" size={50} color="#4A90E2" style={{
+            marginBottom: 20,
+            opacity: 0.8,
+          }} />
+          <ThemedText style={styles.calibrationText}>
+            Calibrating Compass...
+          </ThemedText>
+          <ThemedText style={styles.calibrationSubText}>
+            Please rotate your device in a figure-8 pattern
+          </ThemedText>
+        </View>
       ) : (
         <>
-          {isCalibrating ? (
-            <ThemedView style={styles.calibrationContainer}>
-              <Animated.View
-                style={[
-                  styles.calibrationAnimation,
-                  { transform: [{ rotate: calibrationRotation }] },
-                ]}
-              >
-                <RotateCcw size={80} color={secondaryColor} />
-              </Animated.View>
-              <ThemedText style={[styles.calibrationText, { color: secondaryColor }]}>
-                Calibrating compass...
-              </ThemedText>
-              <ThemedText style={styles.calibrationSubText}>
-                Please move your device in a figure-8 pattern
-              </ThemedText>
-            </ThemedView>
-          ) : (
-            <View style={styles.compassContainer}>
-              {/* Accuracy indicator */}
-              <Animated.View
-                style={[
-                  styles.accuracyIndicator,
-                  { opacity: accuracyOpacity, backgroundColor: getAccuracyColor() },
-                ]}
+          <View style={styles.compassContainer}>
+            {accuracy !== null && (
+              <LinearGradient
+                colors={
+                  Number(accuracy) <= QIBLA_ACCURACY_THRESHOLD
+                    ? ["#4CAF50", "#45A049"]
+                    : ["#FF9800", "#F57C00"]
+                }
+                style={styles.accuracyIndicator}
               >
                 <ThemedText style={styles.accuracyText}>
-                  {getAccuracyText()}
+                  ±{Number(accuracy).toFixed(1)}° {Number(accuracy) <= QIBLA_ACCURACY_THRESHOLD ? "Accurate" : "Calibrating"}
                 </ThemedText>
-              </Animated.View>
-
-              {/* Compass rose background with professional design */}
-              <Animated.View
-                style={[
-                  styles.compassBackground,
-                  {
-                    transform: [
-                      { scale: pulseValue },
-                      { rotate: compassRotation },
-                    ],
-                    borderColor: `rgba(74, 144, 226, 0.3)`,
-                  },
-                ]}
-              >
-                {/* Outer ring */}
-                <View style={styles.compassOuterRing}>
-                  {/* Inner ring */}
-                  <View style={styles.compassInnerRing}>
-                    <View style={styles.compassRose}>
-                      {/* Cardinal directions */}
-                      {["N", "E", "S", "W"].map((direction, index) => (
-                        <ThemedText
-                          key={direction}
-                          style={[
-                            styles.cardinalDirection,
-                            {
-                              transform: [
-                                { rotate: `${index * 90}deg` },
-                                { translateY: -100 },
-                              ],
-                            },
-                          ]}
-                        >
-                          {direction}
-                        </ThemedText>
-                      ))}
-
-                      {/* Degree markers */}
-                      {Array.from({ length: 72 }).map((_, index) => (
-                        <View
-                          key={index}
-                          style={[
-                            styles.degreeMarker,
-                            {
-                              transform: [
-                                { rotate: `${index * 5}deg` },
-                                { translateY: -110 },
-                              ],
-                              height: index % 9 === 0 ? 15 : 8,
-                              backgroundColor:
-                                index % 9 === 0 ? primaryColor : textColor,
-                              opacity: index % 9 === 0 ? 0.8 : 0.3,
-                            },
-                          ]}
-                        />
-                      ))}
-                    </View>
-
-                    <Compass
-                      size={180}
-                      color={primaryColor}
-                      strokeWidth={1.5}
-                    />
+              </LinearGradient>
+            )}
+            <Animated.View
+              style={[
+                styles.compassBackground,
+                { transform: [{ rotate: compassRotation }] },
+              ]}
+            >
+              <View style={styles.compassOuterRing}>
+                <View style={styles.compassInnerRing}>
+                  <View style={styles.compassRose}>
+                    {/* Cardinal directions */}
+                    <ThemedText style={[styles.cardinalDirection, { top: -120 }]}>N</ThemedText>
+                    <ThemedText style={[styles.cardinalDirection, { right: -120 }]}>E</ThemedText>
+                    <ThemedText style={[styles.cardinalDirection, { bottom: -120 }]}>S</ThemedText>
+                    <ThemedText style={[styles.cardinalDirection, { left: -120 }]}>W</ThemedText>
+                    
+                    {/* Degree markers */}
+                    {Array.from({ length: 72 }, (_, i) => (
+                      <View
+                        key={i}
+                        style={[
+                          styles.degreeMarker,
+                          {
+                            height: i % 9 === 0 ? 15 : 8,
+                            backgroundColor: i % 9 === 0 ? "#4A90E2" : "rgba(74, 144, 226, 0.3)",
+                            transform: [
+                              { rotate: `${i * 5}deg` },
+                              { translateY: -130 },
+                            ],
+                          },
+                        ]}
+                      />
+                    ))}
                   </View>
                 </View>
-              </Animated.View>
+              </View>
+            </Animated.View>
 
-              {/* Qibla needle with Makkah icon */}
-              <Animated.View
-                style={[
-                  styles.qiblaNeedle,
-                  {
-                    transform: [{ rotate: needleRotation }],
-                  },
-                ]}
+            {/* Qibla direction needle */}
+            <Animated.View
+              style={[
+                styles.qiblaNeedle,
+                { transform: [{ rotate: needleRotation }] },
+              ]}
+            >
+              <LinearGradient
+                colors={["#FFD700", "#FFA000"]}
+                style={styles.needleGradient}
               >
-                <LinearGradient
-                  colors={["rgba(74, 144, 226, 0.7)", "rgba(74, 144, 226, 1)"]}
-                  style={styles.needleGradient}
-                >
-                  <Navigation
-                    size={40}
-                    color="#fff"
-                    style={{ transform: [{ translateY: -90 }] }}
-                  />
-                </LinearGradient>
-                
-                {/* Makkah Icon */}
-                <Animated.View 
-                  style={[
-                    styles.makkahIconContainer,
-                    { opacity: makkahGlowValue }
-                  ]}
-                >
+                <View style={styles.makkahIconContainer}>
                   <LinearGradient
-                    colors={["rgba(0, 0, 0, 0.7)", "rgba(0, 0, 0, 0.9)"]}
+                    colors={["rgba(255, 215, 0, 0.2)", "rgba(255, 215, 0, 0.1)"]}
                     style={styles.makkahIconBackground}
                   >
-                    <Home
-                      size={24}
-                      color={goldColor}
-                      style={styles.makkahIcon}
-                    />
+                    <FontAwesome name="mosque" size={30} color="#FFD700" style={styles.makkahIcon} />
                   </LinearGradient>
-                </Animated.View>
-              </Animated.View>
+                </View>
+              </LinearGradient>
+            </Animated.View>
 
-              {/* Center dot */}
-              <View 
-                style={[
-                  styles.centerDot, 
-                  { 
-                    backgroundColor: primaryColor,
-                    borderColor: "rgba(255, 255, 255, 0.5)" 
-                  }
-                ]} 
-              />
+            <View style={styles.centerDot} />
+          </View>
 
-              {/* Direction text */}
-              <ThemedText style={[styles.directionText, { color: primaryColor }]}>
-                {qiblaDirection.toFixed(1)}°
-              </ThemedText>
+          <ThemedText style={styles.directionText}>
+            {qiblaDirection.toFixed(1)}°
+          </ThemedText>
 
-              {/* Recalibrate button */}
-              <TouchableOpacity
-                style={styles.recalibrateButton}
-                onPress={handleRecalibrate}
-              >
-                <RotateCcw size={20} color={secondaryColor} />
-                <ThemedText style={[styles.recalibrateText, { color: secondaryColor }]}>
-                  Recalibrate
-                </ThemedText>
-              </TouchableOpacity>
-            </View>
-          )}
+          <TouchableOpacity
+            style={styles.recalibrateButton}
+            onPress={handleRecalibrate}
+          >
+            <FontAwesome name="refresh" size={20} color="#4A90E2" />
+            <ThemedText style={styles.recalibrateText}>Recalibrate</ThemedText>
+          </TouchableOpacity>
 
-          {/* Details panel */}
           <TouchableOpacity
             style={styles.detailsToggle}
             onPress={toggleDetails}
@@ -631,287 +564,46 @@ export default function QiblaScreen() {
             <ThemedText style={styles.detailsToggleText}>
               {showDetails ? "Hide Details" : "Show Details"}
             </ThemedText>
-            {showDetails ? (
-              <ChevronUp size={20} color={textColor} />
-            ) : (
-              <ChevronDown size={20} color={textColor} />
-            )}
+            <FontAwesome
+              name={showDetails ? "chevron-up" : "chevron-down"}
+              size={16}
+              color="#4A90E2"
+            />
           </TouchableOpacity>
 
-          <Animated.View style={[styles.detailsPanel, { height: detailsHeight }]}>
-            <BlurView intensity={80} style={styles.blurContainer}>
-              {distance && (
-                <View style={styles.detailRow}>
-                  <MapPin size={18} color={primaryColor} />
-                  <ThemedText style={styles.detailText}>
-                    Distance to Kaaba: {distance.toFixed(0)} km
-                  </ThemedText>
-                </View>
-              )}
-
+          <Animated.View
+            style={[
+              styles.detailsPanel,
+              {
+                height: detailsHeight,
+                opacity: 1,
+              },
+            ]}
+          >
+            <BlurView intensity={100} style={styles.blurContainer}>
               <View style={styles.detailRow}>
-                <Info size={18} color={primaryColor} />
+                <FontAwesome name="location-arrow" size={20} color="#4A90E2" />
                 <ThemedText style={styles.detailText}>
-                  Magnetic Declination: {magneticDeclination.toFixed(2)}°
+                  Qibla: {qiblaDirection.toFixed(1)}°
                 </ThemedText>
               </View>
-
-              {prayerTimes && (
-                <View style={styles.detailRow}>
-                  <Clock size={18} color={primaryColor} />
-                  <ThemedText style={styles.detailText}>
-                    Next Prayer: {prayerTimes.maghrib}
-                  </ThemedText>
-                </View>
-              )}
-
               <View style={styles.detailRow}>
-                <Home size={18} color={primaryColor} />
+                <FontAwesome name="compass" size={20} color="#4A90E2" />
                 <ThemedText style={styles.detailText}>
-                  Kaaba Coordinates: {KAABA_LATITUDE.toFixed(4)}, {KAABA_LONGITUDE.toFixed(4)}
+                  Heading: {qiblaDirection.toFixed(1)}°
+                </ThemedText>
+              </View>
+              <View style={styles.detailRow}>
+                <FontAwesome name="map-marker" size={20} color="#4A90E2" />
+                <ThemedText style={styles.detailText}>
+                  Location: {location?.coords.latitude.toFixed(4)}°,{" "}
+                  {location?.coords.longitude.toFixed(4)}°
                 </ThemedText>
               </View>
             </BlurView>
           </Animated.View>
         </>
       )}
-
-      <ThemedView
-        style={styles.separator}
-        lightColor="#eee"
-        darkColor="rgba(255,255,255,0.1)"
-      />
-
-      <ThemedText style={styles.infoText}>
-        Align the arrow with Qibla direction for prayer
-      </ThemedText>
     </ThemedView>
   );
 }
-
-const { width } = Dimensions.get("window");
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 20,
-  },
-  compassContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 20,
-    height: 300,
-  },
-  compassBackground: {
-    alignItems: "center",
-    justifyContent: "center",
-    width: 240,
-    height: 240,
-    borderRadius: 120,
-    borderWidth: 2,
-  },
-  compassOuterRing: {
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    borderWidth: 8,
-    borderColor: "rgba(74, 144, 226, 0.2)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  compassInnerRing: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    borderWidth: 1,
-    borderColor: "rgba(74, 144, 226, 0.5)",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  compassRose: {
-    position: "absolute",
-    width: 240,
-    height: 240,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cardinalDirection: {
-    position: "absolute",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  degreeMarker: {
-    position: "absolute",
-    width: 2,
-  },
-  qiblaNeedle: {
-    position: "absolute",
-    width: 40,
-    height: 120,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  needleGradient: {
-    width: 40,
-    height: 120,
-    alignItems: "center",
-    justifyContent: "flex-start",
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 5,
-  },
-  makkahIconContainer: {
-    position: "absolute",
-    top: -120,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  makkahIconBackground: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#FFD700",
-  },
-  makkahIcon: {
-    shadowColor: "#FFD700",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 5,
-  },
-  centerDot: {
-    position: "absolute",
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 3,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  directionText: {
-    marginTop: 20,
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  separator: {
-    marginVertical: 20,
-    height: 1,
-    width: "80%",
-  },
-  errorContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  calibrationContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    height: 300,
-  },
-  calibrationAnimation: {
-    marginBottom: 20,
-  },
-  calibrationText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    textAlign: "center",
-  },
-  calibrationSubText: {
-    fontSize: 14,
-    textAlign: "center",
-    marginTop: 10,
-    opacity: 0.7,
-  },
-  infoText: {
-    fontSize: 14,
-    textAlign: "center",
-    marginTop: 10,
-    opacity: 0.7,
-  },
-  button: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  buttonText: {
-    color: "#fff",
-    fontWeight: "bold",
-  },
-  recalibrateButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 10,
-  },
-  recalibrateText: {
-    marginLeft: 5,
-    fontSize: 14,
-  },
-  detailsToggle: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-  },
-  detailsToggleText: {
-    fontSize: 14,
-    marginRight: 5,
-  },
-  detailsPanel: {
-    width: width - 40,
-    overflow: "hidden",
-    borderRadius: 10,
-    marginTop: 10,
-  },
-  blurContainer: {
-    flex: 1,
-    padding: 15,
-    borderRadius: 10,
-  },
-  detailRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 15,
-  },
-  detailText: {
-    marginLeft: 10,
-    fontSize: 14,
-  },
-  accuracyIndicator: {
-    position: "absolute",
-    top: -30,
-    paddingHorizontal: 15,
-    paddingVertical: 5,
-    borderRadius: 15,
-    zIndex: 10,
-  },
-  accuracyText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "bold",
-  },
-});
