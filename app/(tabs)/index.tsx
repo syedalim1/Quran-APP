@@ -67,7 +67,12 @@ function PrayerTimesScreen() {
   const insets = useSafeAreaInsets();
   const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
   const [nextPrayer, setNextPrayer] = useState<string | null>(null);
-  const [timeToNextPrayer, setTimeToNextPrayer] = useState<string>('');
+  const [timeToNextPrayer, setTimeToNextPrayer] = useState<{
+    hours: string;
+    minutes: string;
+    seconds: string;
+    name: string;
+  }>({ hours: '00', minutes: '00', seconds: '00', name: '' });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [locationName, setLocationName] = useState<string>('Loading location...');
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
@@ -83,6 +88,7 @@ function PrayerTimesScreen() {
   // Get theme colors
   const backgroundColor = useThemeColor({ light: '#f8f9fa', dark: '#121212' }, 'background');
   const textColor = useThemeColor({ light: '#000000', dark: '#ffffff' }, 'text');
+  const primaryColor = useThemeColor({ light: '#2196F3', dark: '#1976D2' }, 'text');
 
   useEffect(() => {
     // Initial animations
@@ -169,36 +175,128 @@ function PrayerTimesScreen() {
       setPrayerTimes(prayerTimes);
 
       // Calculate next prayer
-      const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
-      const now = new Date();
-      let nextPrayerFound = false;
-
-      for (const prayer of prayers) {
-        const prayerTime = prayerTimes[prayer as keyof PrayerTimes] as Date;
-        if (prayerTime > now) {
-          setNextPrayer(prayer);
-          const diff = prayerTime.getTime() - now.getTime();
-          const hours = Math.floor(diff / (1000 * 60 * 60));
-          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-          setTimeToNextPrayer(`${hours}h ${minutes}m`);
-          nextPrayerFound = true;
-          break;
+      const calculateTimeToNextPrayer = (currentTime: Date, nextPrayerTime: Date | number | any, prayerName: string) => {
+        // Ensure we have a valid Date object
+        let prayerDateTime: Date;
+        
+        try {
+          if (nextPrayerTime instanceof Date) {
+            prayerDateTime = nextPrayerTime;
+          } else if (typeof nextPrayerTime === 'number') {
+            prayerDateTime = new Date(nextPrayerTime);
+          } else if (typeof nextPrayerTime === 'string') {
+            prayerDateTime = new Date(nextPrayerTime);
+          } else {
+            prayerDateTime = currentTime; // fallback to current time if invalid
+          }
+        } catch (error) {
+          console.error('Error converting prayer time to Date:', error);
+          prayerDateTime = currentTime;
         }
-      }
+        
+        const diff = prayerDateTime.getTime() - currentTime.getTime();
+        const hours = Math.floor(Math.max(0, diff) / (1000 * 60 * 60));
+        const minutes = Math.floor((Math.max(0, diff) % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((Math.max(0, diff) % (1000 * 60)) / 1000);
+        
+        return {
+          hours: hours.toString().padStart(2, '0'),
+          minutes: minutes.toString().padStart(2, '0'),
+          seconds: seconds.toString().padStart(2, '0'),
+          name: PRAYER_NAMES[prayerName as keyof typeof PRAYER_NAMES]?.english || prayerName
+        };
+      };
 
-      if (!nextPrayerFound) {
-        // If no next prayer found today, get tomorrow's Fajr
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const tomorrowPrayers = new PrayerTimes(newCoordinates, tomorrow, params);
-        setNextPrayer('fajr');
-        const fajrTime = tomorrowPrayers.fajr;
-        const diff = fajrTime.getTime() - now.getTime();
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        setTimeToNextPrayer(`${hours}h ${minutes}m`);
-      }
+      const updatePrayerTimes = () => {
+        if (!coordinates || !prayerTimes) return;
 
+        const now = new Date();
+        const prayers = Object.keys(PRAYER_NAMES);
+        let foundNext = false;
+
+        for (const prayer of prayers) {
+          const prayerTime = prayerTimes[prayer as keyof PrayerTimes];
+          
+          // Skip if prayer time is not available or is a function
+          if (!prayerTime || typeof prayerTime === 'function') continue;
+
+          try {
+            // Ensure prayerTime is a Date object
+            let prayerDateTime: Date;
+            
+            if (prayerTime instanceof Date) {
+              prayerDateTime = prayerTime;
+            } else if (typeof prayerTime === 'number') {
+              prayerDateTime = new Date(prayerTime);
+            } else {
+              // For any other type, try to create a new Date
+              prayerDateTime = new Date(prayerTime as any);
+              
+              // Validate that we got a valid date
+              if (isNaN(prayerDateTime.getTime())) {
+                throw new Error('Invalid prayer time format');
+              }
+            }
+
+            if (prayerDateTime.getTime() > now.getTime() && !foundNext) {
+              setNextPrayer(prayer);
+              const timeUntil = calculateTimeToNextPrayer(now, prayerDateTime, prayer);
+              setTimeToNextPrayer(timeUntil);
+              foundNext = true;
+              break;
+            }
+          } catch (error) {
+            console.error('Error processing prayer time:', error);
+            continue;
+          }
+        }
+
+        if (!foundNext) {
+          const tomorrow = new Date(now);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          try {
+            // Get the calculation method parameters by calling the method
+            const calculationMethod = CalculationMethod[CALCULATION_METHOD as keyof typeof CalculationMethod]();
+            const tomorrowPrayerTimes = new PrayerTimes(coordinates, tomorrow, calculationMethod);
+            const firstPrayer = prayers[0];
+            const nextPrayerTime = tomorrowPrayerTimes[firstPrayer as keyof PrayerTimes];
+            
+            if (nextPrayerTime && typeof nextPrayerTime !== 'function') {
+              setNextPrayer(firstPrayer);
+              let prayerDateTime: Date;
+              
+              if (nextPrayerTime instanceof Date) {
+                prayerDateTime = nextPrayerTime;
+              } else if (typeof nextPrayerTime === 'number') {
+                prayerDateTime = new Date(nextPrayerTime);
+              } else {
+                // For any other type, try to create a new Date
+                prayerDateTime = new Date(nextPrayerTime as any);
+                
+                // Validate that we got a valid date
+                if (isNaN(prayerDateTime.getTime())) {
+                  throw new Error('Invalid prayer time format');
+                }
+              }
+              
+              const timeUntil = calculateTimeToNextPrayer(now, prayerDateTime, firstPrayer);
+              setTimeToNextPrayer(timeUntil);
+            }
+          } catch (error) {
+            console.error('Error calculating tomorrow prayer times:', error);
+          }
+        }
+      };
+
+      updatePrayerTimes();
+
+      // Cleanup timer on unmount
+      const timer = setInterval(() => {
+        updatePrayerTimes();
+      }, 1000);
+
+      timerRef.current = timer;
+      return () => clearInterval(timer);
     } catch (error) {
       console.error('Error calculating prayer times:', error);
       setErrorMsg('Error calculating prayer times. Please check your location settings.');
@@ -206,39 +304,61 @@ function PrayerTimesScreen() {
     }
   };
 
-  const getProgressForPrayer = (prayerTime: Date) => {
-    if (!prayerTimes || !prayerTime) return 0;
+  const getProgressForPrayer = (prayerTime: any) => {
+    if (!prayerTimes || !prayerTime || !coordinates) return 0;
     
     const now = new Date();
-    const prayers = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
+    const prayers = Object.keys(PRAYER_NAMES);
     const currentPrayerIndex = prayers.findIndex(p => {
       const time = prayerTimes[p as keyof PrayerTimes];
-      return time instanceof Date && time.getTime() === prayerTime.getTime();
+      if (!time || typeof time === 'function') return false;
+      
+      try {
+        const currentTime = time instanceof Date ? time : new Date(time as any);
+        const targetTime = prayerTime instanceof Date ? prayerTime : new Date(prayerTime as any);
+        
+        return currentTime.getTime() === targetTime.getTime();
+      } catch (error) {
+        console.error('Error comparing prayer times:', error);
+        return false;
+      }
     });
     
     if (currentPrayerIndex === -1) return 0;
     
     const nextPrayerIndex = currentPrayerIndex + 1;
-    let nextPrayerTime: Date;
+    let nextPrayerTime: Date | null = null;
     
-    if (nextPrayerIndex < prayers.length) {
-      const nextPrayer = prayers[nextPrayerIndex];
-      const time = prayerTimes[nextPrayer as keyof PrayerTimes];
-      if (time instanceof Date) {
-        nextPrayerTime = time;
+    try {
+      if (nextPrayerIndex < prayers.length) {
+        const nextTime = prayerTimes[prayers[nextPrayerIndex] as keyof PrayerTimes];
+        if (nextTime && typeof nextTime !== 'function') {
+          nextPrayerTime = nextTime instanceof Date ? nextTime : new Date(nextTime as any);
+        }
       } else {
-        // If no next prayer today, use 24 hours from current prayer
-        nextPrayerTime = new Date(prayerTime.getTime() + (24 * 60 * 60 * 1000));
+        // If it's the last prayer of the day, use the first prayer of next day
+        const tomorrow = new Date(now);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const calculationMethod = CalculationMethod[CALCULATION_METHOD as keyof typeof CalculationMethod]();
+        const tomorrowPrayerTimes = new PrayerTimes(coordinates, tomorrow, calculationMethod);
+        const firstPrayer = prayers[0];
+        const nextTime = tomorrowPrayerTimes[firstPrayer as keyof PrayerTimes];
+        if (nextTime && typeof nextTime !== 'function') {
+          nextPrayerTime = nextTime instanceof Date ? nextTime : new Date(nextTime as any);
+        }
       }
-    } else {
-      // If this is the last prayer, use 24 hours from current prayer
-      nextPrayerTime = new Date(prayerTime.getTime() + (24 * 60 * 60 * 1000));
+      
+      if (!nextPrayerTime) return 0;
+      
+      const currentTime = prayerTime instanceof Date ? prayerTime : new Date(prayerTime as any);
+      const totalDuration = nextPrayerTime.getTime() - currentTime.getTime();
+      const elapsed = now.getTime() - currentTime.getTime();
+      
+      return Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+    } catch (error) {
+      console.error('Error calculating prayer progress:', error);
+      return 0;
     }
-
-    const total = nextPrayerTime.getTime() - prayerTime.getTime();
-    const elapsed = now.getTime() - prayerTime.getTime();
-    
-    return Math.max(0, Math.min(1, elapsed / total));
   };
 
   const onRefresh = React.useCallback(async () => {
@@ -254,145 +374,129 @@ function PrayerTimesScreen() {
     setRefreshing(false);
   }, []);
 
+  const renderNextPrayerCountdown = () => {
+    return (
+      <View style={styles.nextPrayerContainer}>
+        <LinearGradient
+          colors={[primaryColor, `${primaryColor}80`]}
+          style={styles.nextPrayerGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
+          <View style={styles.nextPrayerContent}>
+            <View style={styles.nextPrayerHeader}>
+              <FontAwesome name="clock-o" size={24} color="#fff" style={styles.nextPrayerIcon} />
+              <ThemedText style={styles.nextPrayerTitle}>Next Prayer</ThemedText>
+            </View>
+            
+            <ThemedText style={styles.nextPrayerName}>
+              {timeToNextPrayer.name}
+            </ThemedText>
+            
+            <View style={styles.countdownContainer}>
+              <View style={styles.timeUnit}>
+                <ThemedText style={styles.timeNumber}>{timeToNextPrayer.hours}</ThemedText>
+                <ThemedText style={styles.timeLabel}>Hours</ThemedText>
+              </View>
+              
+              <ThemedText style={styles.timeSeparator}>:</ThemedText>
+              
+              <View style={styles.timeUnit}>
+                <ThemedText style={styles.timeNumber}>{timeToNextPrayer.minutes}</ThemedText>
+                <ThemedText style={styles.timeLabel}>Minutes</ThemedText>
+              </View>
+              
+              <ThemedText style={styles.timeSeparator}>:</ThemedText>
+              
+              <View style={styles.timeUnit}>
+                <ThemedText style={styles.timeNumber}>{timeToNextPrayer.seconds}</ThemedText>
+                <ThemedText style={styles.timeLabel}>Seconds</ThemedText>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
+      </View>
+    );
+  };
+
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
-      <StatusBar barStyle="light-content" />
-      <LinearGradient
-        colors={['rgba(0,0,0,0.8)', 'transparent']}
-        style={[styles.headerGradient, { height: 100 + insets.top }]}
-      />
-      
-      <ScrollView 
+    <ThemedView style={styles.container}>
+      <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={textColor}
-            colors={['#4CAF50', '#2196F3', '#9C27B0']}
-          />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-          {errorMsg ? (
-            <View style={styles.errorContainer}>
-              <FontAwesome name="circle" size={50} color="#ff6b6b" />
-              <ThemedText style={styles.errorText}>{errorMsg}</ThemedText>
-              <TouchableOpacity 
-                style={styles.retryButton}
-                onPress={calculatePrayerTimes}
+        {renderNextPrayerCountdown()}
+        
+        {/* Rest of the prayer times list */}
+        {prayerTimes && Object.entries(PRAYER_NAMES).map(([prayer, info]) => {
+          const prayerTime = prayerTimes[prayer as keyof PrayerTimes];
+          if (!prayerTime) return null;
+          
+          const isNext = prayer === nextPrayer;
+          const progress = getProgressForPrayer(prayerTime);
+          
+          return (
+            <View key={prayer} style={[styles.prayerTimeCard, isNext && styles.nextPrayerCard]}>
+              <LinearGradient
+                colors={info.color}
+                style={styles.prayerTimeGradient}
               >
-                <LinearGradient
-                  colors={['#4CAF50', '#43A047']}
-                  style={styles.retryButtonGradient}
-                >
-                  <ThemedText style={styles.retryButtonText}>Retry</ThemedText>
-                </LinearGradient>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <View style={styles.locationContainer}>
-                <FontAwesome name="map-marker" size={24} color="#fff" style={styles.locationIcon} />
-                <ThemedText style={styles.locationText}>{locationName}</ThemedText>
-              </View>
-              {nextPrayer && timeToNextPrayer && (
-                <View style={styles.nextPrayerContainer}>
-                  <LinearGradient
-                    colors={PRAYER_NAMES[nextPrayer as keyof typeof PRAYER_NAMES].color}
-                    style={styles.nextPrayerGradient}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                  >
-                    <View style={styles.nextPrayerContent}>
-                      <ThemedText style={styles.nextPrayerLabel}>Next Prayer</ThemedText>
-                      <View style={styles.nextPrayerInfo}>
-                        <View style={styles.nextPrayerIconContainer}>
-                          <FontAwesome 
-                            name={PRAYER_NAMES[nextPrayer as keyof typeof PRAYER_NAMES].icon} 
-                            size={width < 360 ? 24 : 30} 
-                            color="#fff" 
-                          />
-                        </View>
-                        <View style={styles.nextPrayerTextContainer}>
-                          <ThemedText style={styles.nextPrayerName}>
-                            {PRAYER_NAMES[nextPrayer as keyof typeof PRAYER_NAMES].english}
-                          </ThemedText>
-                          <ThemedText style={styles.nextPrayerArabic}>
-                            {PRAYER_NAMES[nextPrayer as keyof typeof PRAYER_NAMES].arabic}
-                          </ThemedText>
-                          <ThemedText style={styles.nextPrayerDescription}>
-                            {PRAYER_NAMES[nextPrayer as keyof typeof PRAYER_NAMES].description}
-                          </ThemedText>
-                        </View>
-                      </View>
-                      <View style={styles.nextPrayerTimeContainer}>
-                        <ThemedText style={styles.nextPrayerTimeLabel}>Time Remaining</ThemedText>
-                        <ThemedText style={styles.nextPrayerTime}>{timeToNextPrayer}</ThemedText>
-                      </View>
+                <View style={styles.prayerTimeContent}>
+                  <View style={styles.prayerNameContainer}>
+                    <FontAwesome 
+                      name={info.icon}
+                      size={24} 
+                      color="#fff" 
+                      style={styles.prayerIcon} 
+                    />
+                    <View>
+                      <ThemedText style={styles.prayerNameEnglish}>
+                        {info.english}
+                      </ThemedText>
+                      <ThemedText style={styles.prayerNameArabic}>
+                        {info.arabic}
+                      </ThemedText>
                     </View>
-                  </LinearGradient>
-                </View>
-              )}
-              {prayerTimes && Object.entries(PRAYER_NAMES).map(([prayer, info]) => {
-                const prayerTime = prayerTimes[prayer as keyof PrayerTimes] as Date;
-                const isNext = prayer === nextPrayer;
-                const progress = getProgressForPrayer(prayerTime);
-                
-                return (
-                  <View key={prayer} style={[styles.prayerTimeCard, isNext && styles.nextPrayerCard]}>
-                    <LinearGradient
-                      colors={info.color || ['#4a90e2', '#357abd']}
-                      style={styles.prayerTimeGradient}
-                    >
-                      <View style={styles.prayerTimeContent}>
-                        <View style={styles.prayerNameContainer}>
-                          <FontAwesome 
-                            name={info.icon}
-                            size={24} 
-                            color="#fff" 
-                            style={styles.prayerIcon} 
-                          />
-                          <View>
-                            <ThemedText style={styles.prayerNameEnglish}>
-                              {info.english}
-                            </ThemedText>
-                            <ThemedText style={styles.prayerNameArabic}>
-                              {info.arabic}
-                            </ThemedText>
-                          </View>
-                        </View>
-                        <View style={styles.prayerTimeWrapper}>
-                          <ThemedText style={styles.prayerTime}>
-                            {prayerTime.toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </ThemedText>
-                          {isNext && (
-                            <View style={styles.nextIndicator}>
-                              <ThemedText style={styles.nextIndicatorText}>NEXT</ThemedText>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                      <View style={styles.progressBar}>
-                        <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
-                      </View>
-                    </LinearGradient>
                   </View>
-                );
-              })}
-            </>
-          )}
-        </Animated.View>
+                  <ThemedText style={styles.prayerTime}>
+                    {(() => {
+                      // Convert prayerTime to Date if it isn't already
+                      let timeToDisplay: Date;
+                      try {
+                        if (prayerTime instanceof Date) {
+                          timeToDisplay = prayerTime;
+                        } else if (typeof prayerTime === 'number') {
+                          timeToDisplay = new Date(prayerTime);
+                        } else if (typeof prayerTime === 'function') {
+                          return '--:--'; // Handle function case
+                        } else {
+                          timeToDisplay = new Date(prayerTime as any);
+                          if (isNaN(timeToDisplay.getTime())) {
+                            return '--:--';
+                          }
+                        }
+                        return timeToDisplay.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      } catch (error) {
+                        console.error('Error formatting prayer time:', error);
+                        return '--:--';
+                      }
+                    })()}
+                  </ThemedText>
+                </View>
+                {isNext && (
+                  <View style={styles.progressBar}>
+                    <View style={[styles.progressFill, { width: `${progress}%` }]} />
+                  </View>
+                )}
+              </LinearGradient>
+            </View>
+          );
+        })}
       </ScrollView>
     </ThemedView>
   );
 }
-
-
 
 export default PrayerTimesScreen;

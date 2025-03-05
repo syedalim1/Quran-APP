@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
   View,
-  StyleSheet,
   Animated,
   Easing,
   Dimensions,
@@ -11,35 +10,46 @@ import {
 } from "react-native";
 import { ThemedView } from "../../components/ThemedView";
 import { ThemedText } from "../../components/ThemedText";
-import { Magnetometer } from "expo-sensors";
+import { Magnetometer, Accelerometer, MagnetometerMeasurement, AccelerometerMeasurement } from "expo-sensors";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
-import { Compass, Navigation, MapPin, RotateCcw, Info, Clock, ChevronDown, ChevronUp, Home } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
 import { useThemeColor } from "../../hooks/useThemeColor";
 import { styles } from "../../src/styles/QiblaScreen.style";
-import LottieView from 'lottie-react-native';
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import { FontAwesome } from "@expo/vector-icons";
+
+interface PrayerTimes {
+  fajr: string;
+  dhuhr: string;
+  asr: string;
+  maghrib: string;
+  isha: string;
+}
 
 const KAABA_LATITUDE = 21.4225;
 const KAABA_LONGITUDE = 39.8262;
-const QIBLA_ACCURACY_THRESHOLD = 3; // Increased accuracy threshold
-const COMPASS_UPDATE_INTERVAL = 100; // More frequent updates
+const QIBLA_ACCURACY_THRESHOLD = 3;
+const COMPASS_UPDATE_INTERVAL = 100;
 
 export default function QiblaScreen() {
   // State variables
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [heading, setHeading] = useState(0);
-  const [qiblaDirection, setQiblaDirection] = useState(0);
+  const [heading, setHeading] = useState<number>(0);
+  const [qiblaDirection, setQiblaDirection] = useState<number>(0);
   const [accuracy, setAccuracy] = useState<number | null>(null);
-  const [isCalibrating, setIsCalibrating] = useState(true);
-  const [showDetails, setShowDetails] = useState(false);
+  const [isCalibrating, setIsCalibrating] = useState<boolean>(true);
+  const [showDetails, setShowDetails] = useState<boolean>(false);
   const [distance, setDistance] = useState<number | null>(null);
-  const [magneticDeclination, setMagneticDeclination] = useState(0);
-  const [lastVibrationTime, setLastVibrationTime] = useState(0);
-  const [prayerTimes, setPrayerTimes] = useState<any>(null);
+  const [magneticDeclination, setMagneticDeclination] = useState<number>(0);
+  const [lastVibrationTime, setLastVibrationTime] = useState<number>(0);
+  const [prayerTimes, setPrayerTimes] = useState<PrayerTimes | null>(null);
+
+  // Sensor data
+  const [filteredMagnet, setFilteredMagnet] = useState({ x: 0, y: 0, z: 0 });
+  const [filteredAccel, setFilteredAccel] = useState({ x: 0, y: 0, z: 0 });
 
   // Animation values
   const rotateValue = useRef(new Animated.Value(0)).current;
@@ -49,6 +59,10 @@ export default function QiblaScreen() {
   const needleValue = useRef(new Animated.Value(0)).current;
   const accuracyOpacity = useRef(new Animated.Value(0)).current;
   const makkahGlowValue = useRef(new Animated.Value(0.5)).current;
+
+  // Sensor filter parameters
+  const alpha = 0.15; // Smoothing factor for low-pass filter
+  const calibrationSamples = useRef<{ x: number; y: number; z: number }[]>([]);
 
   // Theme colors
   const primaryColor = useThemeColor({ light: "#4A90E2", dark: "#5A9CF2" }, "text");
@@ -60,7 +74,6 @@ export default function QiblaScreen() {
 
   // Animated compass rotation
   const animateCompass = (angle: number) => {
-    // Calculate shortest rotation path
     let currentValue = 0;
     rotateValue.addListener(({ value }) => {
       currentValue = value;
@@ -77,7 +90,6 @@ export default function QiblaScreen() {
       useNativeDriver: true,
     }).start();
 
-    // Animate needle separately for smoother effect
     Animated.timing(needleValue, {
       toValue: newAngle,
       duration: 150,
@@ -86,105 +98,101 @@ export default function QiblaScreen() {
     }).start();
   };
 
-  // Pulse animation
-  useEffect(() => {
-    const startPulseAnimation = () => {
-      Animated.sequence([
-        Animated.timing(pulseValue, {
-          toValue: 1.05,
-          duration: 1000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseValue, {
-          toValue: 1,
-          duration: 1000,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ]).start(() => startPulseAnimation());
-    };
+  // Tilt-compensated heading calculation
+  const calculateTrueHeading = () => {
+    const { x: ax, y: ay, z: az } = filteredAccel;
+    const { x: mx, y: my, z: mz } = filteredMagnet;
 
-    startPulseAnimation();
+    const normAcc = Math.sqrt(ax ** 2 + ay ** 2 + az ** 2);
+    const nax = ax / normAcc;
+    const nay = ay / normAcc;
+    const naz = az / normAcc;
 
-    return () => {
-      pulseValue.stopAnimation();
-    };
-  }, []);
+    const ex = nay * mz - naz * my;
+    const ey = naz * mx - nax * mz;
+    const ez = nax * my - nay * mx;
+    const normE = Math.sqrt(ex ** 2 + ey ** 2 + ez ** 2);
+    const enx = ex / normE;
+    const eny = ey / normE;
+    const enz = ez / normE;
 
-  // Makkah icon glow animation
-  useEffect(() => {
-    const startGlowAnimation = () => {
-      Animated.sequence([
-        Animated.timing(makkahGlowValue, {
-          toValue: 1,
-          duration: 1500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(makkahGlowValue, {
-          toValue: 0.5,
-          duration: 1500,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ]).start(() => startGlowAnimation());
-    };
+    const nx = nay * enz - naz * eny;
+    const ny = naz * enx - nax * enz;
+    const nz = nax * eny - nay * enx;
 
-    startGlowAnimation();
+    const heading = Math.atan2(eny, nx) * (180 / Math.PI);
+    return (heading + 360) % 360;
+  };
 
-    return () => {
-      makkahGlowValue.stopAnimation();
-    };
-  }, []);
+  // Improved Qibla calculation using Great Circle formula
+  const calculateQiblaBearing = (lat: number, lon: number): number => {
+    const φ1 = lat * Math.PI / 180;
+    const λ1 = lon * Math.PI / 180;
+    const φ2 = KAABA_LATITUDE * Math.PI / 180;
+    const λ2 = KAABA_LONGITUDE * Math.PI / 180;
 
-  // Calibration animation
-  useEffect(() => {
-    if (isCalibrating) {
-      const startCalibrationAnimation = () => {
-        Animated.loop(
-          Animated.timing(calibrationValue, {
-            toValue: 1,
-            duration: 1500,
-            easing: Easing.linear,
-            useNativeDriver: true,
-          })
-        ).start();
-      };
+    const y = Math.sin(λ2 - λ1) * Math.cos(φ2);
+    const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(λ2 - λ1);
+    const θ = Math.atan2(y, x);
+    return (θ * 180 / Math.PI + 360) % 360;
+  };
 
-      startCalibrationAnimation();
-    } else {
-      calibrationValue.stopAnimation();
-      calibrationValue.setValue(0);
+  // Update magnetic declination
+  const updateMagneticDeclination = (lat: number, lon: number) => {
+    const year = new Date().getFullYear();
+    const declination = calculateMagneticDeclination(lat, lon, year);
+    setMagneticDeclination(declination);
+  };
+
+  // Sensor handlers
+  const handleMagnetometer = (data: MagnetometerMeasurement) => {
+    setFilteredMagnet(prev => ({
+      x: alpha * data.x + (1 - alpha) * prev.x,
+      y: alpha * data.y + (1 - alpha) * prev.y,
+      z: alpha * data.z + (1 - alpha) * prev.z,
+    }));
+  };
+
+  const handleAccelerometer = (data: AccelerometerMeasurement) => {
+    setFilteredAccel(prev => ({
+      x: alpha * data.x + (1 - alpha) * prev.x,
+      y: alpha * data.y + (1 - alpha) * prev.y,
+      z: alpha * data.z + (1 - alpha) * prev.z,
+    }));
+  };
+
+  // Calibration check
+  const checkCalibration = () => {
+    if (!isCalibrating) return;
+
+    calibrationSamples.current.push({ ...filteredMagnet });
+    if (calibrationSamples.current.length > 50) {
+      calibrationSamples.current.shift();
+
+      const avg = calibrationSamples.current.reduce((acc, val) => {
+        acc.x += val.x;
+        acc.y += val.y;
+        acc.z += val.z;
+        return acc;
+      }, { x: 0, y: 0, z: 0 });
+
+      avg.x /= 50;
+      avg.y /= 50;
+      avg.z /= 50;
+
+      const stdDev = calibrationSamples.current.reduce((acc, val) => {
+        acc.x += (val.x - avg.x) ** 2;
+        acc.y += (val.y - avg.y) ** 2;
+        acc.z += (val.z - avg.z) ** 2;
+        return acc;
+      }, { x: 0, y: 0, z: 0 });
+
+      const totalStdDev = Math.sqrt(stdDev.x + stdDev.y + stdDev.z) / 50;
+      if (totalStdDev < 0.05) {
+        setIsCalibrating(false);
+      }
     }
-  }, [isCalibrating]);
-
-  // Details panel animation
-  useEffect(() => {
-    Animated.timing(detailsHeight, {
-      toValue: showDetails ? 200 : 0,
-      duration: 300,
-      easing: Easing.inOut(Easing.cubic),
-      useNativeDriver: false,
-    }).start();
-  }, [showDetails]);
-
-  // Accuracy indicator animation
-  useEffect(() => {
-    Animated.sequence([
-      Animated.timing(accuracyOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.delay(2000),
-      Animated.timing(accuracyOpacity, {
-        toValue: 0.3,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [accuracy]);
+  };
 
   // Location permission and retrieval
   useEffect(() => {
@@ -202,7 +210,6 @@ export default function QiblaScreen() {
         });
         setLocation(location);
 
-        // Calculate distance to Kaaba
         if (location) {
           const distance = calculateDistance(
             location.coords.latitude,
@@ -211,229 +218,66 @@ export default function QiblaScreen() {
             KAABA_LONGITUDE
           );
           setDistance(distance);
+          updateMagneticDeclination(location.coords.latitude, location.coords.longitude);
+          fetchPrayerTimes(location.coords.latitude, location.coords.longitude);
         }
-
-        // Get magnetic declination (simplified - in a real app you'd use a proper API)
-        estimateMagneticDeclination(location.coords.latitude, location.coords.longitude);
-
-        // Get prayer times
-        fetchPrayerTimes(location.coords.latitude, location.coords.longitude);
       } catch (error) {
         setErrorMsg("Unable to retrieve location. Please try again.");
       }
     })();
   }, []);
 
-  // Magnetometer setup
+  // Sensor setup
   useEffect(() => {
-    let subscription: { remove: () => void } | null = null;
+    let magnetSubscription: { remove: () => void } | null = null;
+    let accelSubscription: { remove: () => void } | null = null;
 
-    const setupMagnetometer = async () => {
+    const setupSensors = async () => {
       setIsCalibrating(true);
       Magnetometer.setUpdateInterval(COMPASS_UPDATE_INTERVAL);
+      Accelerometer.setUpdateInterval(COMPASS_UPDATE_INTERVAL);
 
-      subscription = Magnetometer.addListener((data) => {
-        if (location) {
-          const direction = calculateQiblaDirection(data, location);
-          setQiblaDirection(direction);
-          animateCompass(direction);
-
-          // Update accuracy based on magnetometer data stability
-          updateAccuracy(data);
-
-          // Trigger haptic feedback when pointing to Qibla
-          const qiblaAngleDiff = Math.abs(direction);
-          if (qiblaAngleDiff < QIBLA_ACCURACY_THRESHOLD) {
-            const now = Date.now();
-            if (now - lastVibrationTime > 2000) { // Limit to once every 2 seconds
-              if (Platform.OS === 'ios') {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              } else {
-                Vibration.vibrate([0, 50, 100, 50]);
-              }
-              setLastVibrationTime(now);
-            }
-          }
-        }
-      });
-
-      // Simulate calibration with a more realistic time
-      setTimeout(() => setIsCalibrating(false), 3000);
+      magnetSubscription = Magnetometer.addListener(handleMagnetometer);
+      accelSubscription = Accelerometer.addListener(handleAccelerometer);
     };
 
     if (location) {
-      setupMagnetometer();
+      setupSensors();
     }
 
     return () => {
-      subscription?.remove();
+      magnetSubscription?.remove();
+      accelSubscription?.remove();
     };
   }, [location]);
 
-  // Estimate magnetic declination (simplified)
-  const estimateMagneticDeclination = (latitude: number, longitude: number) => {
-    // This is a very simplified model - in a real app, you would use a proper API or library
-    // like the World Magnetic Model (WMM) or International Geomagnetic Reference Field (IGRF)
-    const latRad = (latitude * Math.PI) / 180;
-    const lonRad = (longitude * Math.PI) / 180;
-    
-    // Simplified calculation (not accurate, just for demonstration)
-    const declination = 
-      2.5 * Math.sin(latRad) * Math.cos(lonRad) + 
-      0.5 * Math.cos(2 * latRad) * Math.sin(2 * lonRad);
-    
-    setMagneticDeclination(declination);
-  };
+  // Update heading and Qibla direction
+  useEffect(() => {
+    if (!location || isCalibrating) return;
 
-  // Update accuracy based on magnetometer data stability
-  const updateAccuracy = (data: { x: number; y: number; z: number }) => {
-    // Calculate magnitude of magnetic field
-    const magnitude = Math.sqrt(data.x * data.x + data.y * data.y + data.z * data.z);
-    
-    // Determine accuracy based on magnitude (simplified)
-    if (magnitude < 20) {
-      setAccuracy(1);
-    } else if (magnitude < 40) {
-      setAccuracy(2);
-    } else {
-      setAccuracy(3);
-    }
-  };
+    checkCalibration();
 
-  // Fetch prayer times (simplified)
-  const fetchPrayerTimes = (latitude: number, longitude: number) => {
-    // In a real app, you would use a proper API
-    // This is just a placeholder with fixed times
-    setPrayerTimes({
-      fajr: "05:12 AM",
-      dhuhr: "12:30 PM",
-      asr: "03:45 PM",
-      maghrib: "06:32 PM",
-      isha: "08:00 PM",
-    });
-  };
-
-  // Qibla direction calculation with enhanced accuracy
-  const calculateQiblaDirection = (
-    magnetometerData: { x: number; y: number; z: number },
-    location: Location.LocationObject
-  ) => {
-    const { x, y } = magnetometerData;
-    const { latitude, longitude } = location.coords;
-
-    // Convert degrees to radians
-    const toRadians = (degrees: number) => degrees * (Math.PI / 180);
-    const toDegrees = (radians: number) => radians * (180 / Math.PI);
-
-    // Calculate Qibla direction using the Spherical Law of Cosines
-    const latK = toRadians(KAABA_LATITUDE);
-    const lonK = toRadians(KAABA_LONGITUDE);
-    const latL = toRadians(latitude);
-    const lonL = toRadians(longitude);
-
-    // Calculate the angle
-    let angle = Math.atan2(
-      Math.sin(lonK - lonL),
-      Math.cos(latL) * Math.tan(latK) -
-        Math.sin(latL) * Math.cos(lonK - lonL)
+    const trueHeading = calculateTrueHeading();
+    const qiblaBearing = calculateQiblaBearing(
+      location.coords.latitude,
+      location.coords.longitude
     );
 
-    angle = toDegrees(angle);
-    angle = (angle + 360) % 360;
+    const adjustedHeading = (trueHeading + magneticDeclination + 360) % 360;
+    const qiblaDirection = (qiblaBearing - adjustedHeading + 360) % 360;
 
-    // Calculate magnetic heading
-    let magneticHeading = Math.atan2(y, x);
-    magneticHeading = toDegrees(magneticHeading);
-    
-    // Apply magnetic declination correction
-    magneticHeading = (magneticHeading + magneticDeclination + 360) % 360;
+    setHeading(adjustedHeading);
+    setQiblaDirection(qiblaDirection);
+    animateCompass(qiblaDirection);
+  }, [filteredMagnet, filteredAccel, magneticDeclination]);
 
-    // Calculate final Qibla direction
-    let qiblaDirection = angle - magneticHeading;
-    return (qiblaDirection + 360) % 360;
-  };
-
-  // Calculate distance between two coordinates using Haversine formula
-  const calculateDistance = (
-    lat1: number,
-    lon1: number,
-    lat2: number,
-    lon2: number
-  ): number => {
-    const R = 6371; // Earth's radius in km
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) *
-        Math.cos(lat2 * (Math.PI / 180)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
-
-  // Recalibrate compass
-  const handleRecalibrate = () => {
-    setIsCalibrating(true);
-    setTimeout(() => setIsCalibrating(false), 3000);
-  };
-
-  // Toggle details panel
-  const toggleDetails = () => {
-    setShowDetails(!showDetails);
-  };
-
-  // Rotation animations
-  const compassRotation = rotateValue.interpolate({
-    inputRange: [0, 360],
-    outputRange: ["0deg", "360deg"],
-  });
-
-  const needleRotation = needleValue.interpolate({
-    inputRange: [0, 360],
-    outputRange: ["0deg", "360deg"],
-  });
-
-  const calibrationRotation = calibrationValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "360deg"],
-  });
-
-  // Get accuracy color
-  const getAccuracyColor = () => {
-    switch (accuracy) {
-      case 1:
-        return errorColor;
-      case 2:
-        return secondaryColor;
-      case 3:
-        return "#2ECC71";
-      default:
-        return secondaryColor;
-    }
-  };
-
-  // Get accuracy text
-  const getAccuracyText = () => {
-    switch (accuracy) {
-      case 1:
-        return "Low Accuracy";
-      case 2:
-        return "Medium Accuracy";
-      case 3:
-        return "High Accuracy";
-      default:
-        return "Medium Accuracy";
-    }
-  };
-
+  // Render method
   return (
     <ThemedView style={styles.container}>
       <ThemedText style={[styles.title, { color: primaryColor }]}>
         Qibla Direction
       </ThemedText>
-
+  
       {errorMsg ? (
         <View style={styles.errorContainer}>
           <FontAwesome name="exclamation-triangle" size={50} color="#FF6B6B" />
@@ -455,10 +299,12 @@ export default function QiblaScreen() {
         </View>
       ) : isCalibrating ? (
         <View style={styles.calibrationContainer}>
-          <FontAwesome name="compass" size={50} color="#4A90E2" style={{
-            marginBottom: 20,
-            opacity: 0.8,
-          }} />
+          <FontAwesome
+            name="compass"
+            size={50}
+            color="#4A90E2"
+            style={{ marginBottom: 20, opacity: 0.8 }}
+          />
           <ThemedText style={styles.calibrationText}>
             Calibrating Compass...
           </ThemedText>
@@ -479,10 +325,12 @@ export default function QiblaScreen() {
                 style={styles.accuracyIndicator}
               >
                 <ThemedText style={styles.accuracyText}>
-                  ±{Number(accuracy).toFixed(1)}° {Number(accuracy) <= QIBLA_ACCURACY_THRESHOLD ? "Accurate" : "Calibrating"}
+                  ±{Number(accuracy).toFixed(1)}° {getAccuracyText()}
                 </ThemedText>
               </LinearGradient>
             )}
+  
+            {/* Compass Background */}
             <Animated.View
               style={[
                 styles.compassBackground,
@@ -492,13 +340,13 @@ export default function QiblaScreen() {
               <View style={styles.compassOuterRing}>
                 <View style={styles.compassInnerRing}>
                   <View style={styles.compassRose}>
-                    {/* Cardinal directions */}
+                    {/* Cardinal Directions */}
                     <ThemedText style={[styles.cardinalDirection, { top: -120 }]}>N</ThemedText>
                     <ThemedText style={[styles.cardinalDirection, { right: -120 }]}>E</ThemedText>
                     <ThemedText style={[styles.cardinalDirection, { bottom: -120 }]}>S</ThemedText>
                     <ThemedText style={[styles.cardinalDirection, { left: -120 }]}>W</ThemedText>
-                    
-                    {/* Degree markers */}
+  
+                    {/* Degree Markers */}
                     {Array.from({ length: 72 }, (_, i) => (
                       <View
                         key={i}
@@ -519,8 +367,8 @@ export default function QiblaScreen() {
                 </View>
               </View>
             </Animated.View>
-
-            {/* Qibla direction needle */}
+  
+            {/* Qibla Needle */}
             <Animated.View
               style={[
                 styles.qiblaNeedle,
@@ -536,19 +384,27 @@ export default function QiblaScreen() {
                     colors={["rgba(255, 215, 0, 0.2)", "rgba(255, 215, 0, 0.1)"]}
                     style={styles.makkahIconBackground}
                   >
-                    <FontAwesome name="mosque" size={30} color="#FFD700" style={styles.makkahIcon} />
+                    <FontAwesome5
+                      name="mosque"
+                      size={30}
+                      color="#FFD700"
+                      style={styles.makkahIcon}
+                    />
                   </LinearGradient>
                 </View>
               </LinearGradient>
             </Animated.View>
-
+  
+            {/* Center Dot */}
             <View style={styles.centerDot} />
           </View>
-
+  
+          {/* Direction Text */}
           <ThemedText style={styles.directionText}>
             {qiblaDirection.toFixed(1)}°
           </ThemedText>
-
+  
+          {/* Recalibrate Button */}
           <TouchableOpacity
             style={styles.recalibrateButton}
             onPress={handleRecalibrate}
@@ -556,7 +412,8 @@ export default function QiblaScreen() {
             <FontAwesome name="refresh" size={20} color="#4A90E2" />
             <ThemedText style={styles.recalibrateText}>Recalibrate</ThemedText>
           </TouchableOpacity>
-
+  
+          {/* Details Toggle */}
           <TouchableOpacity
             style={styles.detailsToggle}
             onPress={toggleDetails}
@@ -570,7 +427,8 @@ export default function QiblaScreen() {
               color="#4A90E2"
             />
           </TouchableOpacity>
-
+  
+          {/* Details Panel */}
           <Animated.View
             style={[
               styles.detailsPanel,
@@ -590,7 +448,7 @@ export default function QiblaScreen() {
               <View style={styles.detailRow}>
                 <FontAwesome name="compass" size={20} color="#4A90E2" />
                 <ThemedText style={styles.detailText}>
-                  Heading: {qiblaDirection.toFixed(1)}°
+                  Heading: {heading.toFixed(1)}°
                 </ThemedText>
               </View>
               <View style={styles.detailRow}>
