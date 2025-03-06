@@ -1,6 +1,6 @@
 import { StyleSheet, Dimensions } from 'react-native';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export const styles = StyleSheet.create({
   container: {
@@ -18,10 +18,13 @@ export const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+    transform: [{ scale: 1.02 }],
   },
   nextPrayerGradient: {
     borderRadius: 20,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   nextPrayerContent: {
     padding: 20,
@@ -48,15 +51,19 @@ export const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 20,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   countdownContainer: {
-    
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 15,
-    padding:15,
+    padding: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   timeUnit: {
     alignItems: 'center',
@@ -67,6 +74,9 @@ export const styles = StyleSheet.create({
     padding: 10,
     fontWeight: 'bold',
     color: '#fff',
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 3,
   },
   timeLabel: {
     fontSize: 12,
@@ -81,6 +91,79 @@ export const styles = StyleSheet.create({
     marginHorizontal: 10,
     fontWeight: 'bold',
   },
+  actionButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    marginBottom: 16,
+  },
+  locationContainer: {
+    flex: 2,
+    marginRight: 10,
+    borderRadius: 15,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+  },
+  locationGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 15,
+  },
+  locationIcon: {
+    marginRight: 8,
+  },
+  locationText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+    flex: 1,
+  },
+  refreshButton: {
+    borderRadius: 15,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+  },
+  refreshGradient: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 44,
+    height: 44,
+    borderRadius: 15,
+  },
+  actionButton: {
+    flex: 1,
+    borderRadius: 15,
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.22,
+    shadowRadius: 2.22,
+  },
+  actionButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+    marginLeft: 8,
+  },
   prayerTimeCard: {
     marginHorizontal: 16,
     marginBottom: 12,
@@ -90,9 +173,13 @@ export const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.22,
     shadowRadius: 2.22,
+    transform: [{ scale: 1 }],
+    transition: 'transform 0.2s',
   },
   nextPrayerCard: {
     transform: [{ scale: 1.02 }],
+    elevation: 4,
+    shadowOpacity: 0.3,
   },
   prayerTimeGradient: {
     borderRadius: 15,
@@ -121,10 +208,18 @@ export const styles = StyleSheet.create({
     color: '#fff',
     opacity: 0.8,
   },
+  prayerTimeRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   prayerTime: {
     fontSize: 18,
     color: '#fff',
     fontWeight: 'bold',
+    marginRight: 8,
+  },
+  detailsArrow: {
+    opacity: 0.8,
   },
   progressBar: {
     height: 4,
@@ -133,5 +228,90 @@ export const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
     backgroundColor: 'rgba(255, 255, 255, 0.8)',
+  },
+  detailsContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    overflow: 'hidden',
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+  },
+  detailsBlur: {
+    width: '100%',
+    height: '100%',
+  },
+  detailsGradient: {
+    padding: 20,
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+  },
+  detailsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  detailsTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#fff',
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  detailsContent: {
+    marginBottom: 20,
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  detailsIcon: {
+    marginRight: 15,
+    marginTop: 2,
+  },
+  detailsLabel: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginBottom: 4,
+  },
+  detailsValue: {
+    fontSize: 16,
+    color: '#fff',
+    fontWeight: '500',
+  },
+  notificationButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 10,
+  },
+  notificationButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  notificationButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });

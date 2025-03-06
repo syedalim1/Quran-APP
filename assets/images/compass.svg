@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="300" height="300" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Outer circle -->
+  <circle cx="150" cy="150" r="145" fill="none" stroke="#2c3e50" stroke-width="2"/>
+  
+  <!-- Degree markers -->
+  <g id="degree-markers">
+    <!-- 30-degree markers -->
+    <g id="30deg-markers">
+      <line x1="150" y1="20" x2="150" y2="35" stroke="#2c3e50" stroke-width="2" transform="rotate(30 150 150)"/>
+      <line x1="150" y1="20" x2="150" y2="35" stroke="#2c3e50" stroke-width="2" transform="rotate(60 150 150)"/>
+      <line x1="150" y1="20" x2="150" y2="35" stroke="#2c3e50" stroke-width="2" transform="rotate(120 150 150)"/>
+      <line x1="150" y1="20" x2="150" y2="35" stroke="#2c3e50" stroke-width="2" transform="rotate(150 150 150)"/>
+      <line x1="150" y1="20" x2="150" y2="35" stroke="#2c3e50" stroke-width="2" transform="rotate(210 150 150)"/>
+      <line x1="150" y1="20" x2="150" y2="35" stroke="#2c3e50" stroke-width="2" transform="rotate(240 150 150)"/>
+      <line x1="150" y1="20" x2="150" y2="35" stroke="#2c3e50" stroke-width="2" transform="rotate(300 150 150)"/>
+      <line x1="150" y1="20" x2="150" y2="35" stroke="#2c3e50" stroke-width="2" transform="rotate(330 150 150)"/>
+    </g>
+    
+    <!-- Cardinal directions -->
+    <g id="cardinal-markers">
+      <!-- North -->
+      <line x1="150" y1="20" x2="150" y2="40" stroke="#e74c3c" stroke-width="3"/>
+      <text x="150" y="15" text-anchor="middle" fill="#e74c3c" font-size="16" font-weight="bold">N</text>
+      
+      <!-- East -->
+      <line x1="150" y1="20" x2="150" y2="40" stroke="#2c3e50" stroke-width="3" transform="rotate(90 150 150)"/>
+      <text x="285" y="155" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">E</text>
+      
+      <!-- South -->
+      <line x1="150" y1="20" x2="150" y2="40" stroke="#2c3e50" stroke-width="3" transform="rotate(180 150 150)"/>
+      <text x="150" y="295" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">S</text>
+      
+      <!-- West -->
+      <line x1="150" y1="20" x2="150" y2="40" stroke="#2c3e50" stroke-width="3" transform="rotate(270 150 150)"/>
+      <text x="15" y="155" text-anchor="middle" fill="#2c3e50" font-size="16" font-weight="bold">W</text>
+    </g>
+  </g>
+  
+  <!-- Inner circle -->
+  <circle cx="150" cy="150" r="120" fill="none" stroke="#2c3e50" stroke-width="1" stroke-dasharray="4,4"/>
+</svg> 

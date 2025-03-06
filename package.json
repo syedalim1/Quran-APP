@@ -15,7 +15,7 @@
     "preset": "jest-expo"
   },
   "dependencies": {
-    "@expo/vector-icons": "^14.0.2",
+    "@expo/vector-icons": "^14.0.4",
     "@react-native-masked-view/masked-view": "^0.3.2",
     "@react-navigation/bottom-tabs": "^7.2.0",
     "@react-navigation/native": "^7.0.14",
@@ -31,6 +31,7 @@
     "expo-location": "^18.0.7",
     "expo-notifications": "~0.29.13",
     "expo-router": "~4.0.17",
+    "expo-screen-orientation": "^8.0.4",
     "expo-sensors": "^14.0.2",
     "expo-splash-screen": "~0.29.22",
     "expo-status-bar": "~2.0.1",
