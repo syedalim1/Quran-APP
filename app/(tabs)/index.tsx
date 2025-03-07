@@ -1,16 +1,29 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, ScrollView, RefreshControl, Text, Platform, Animated } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Location from 'expo-location';
-import * as Notifications from 'expo-notifications';
-import * as Haptics from 'expo-haptics';
-import { PrayerTimes, Coordinates, CalculationMethod, Madhab, Prayer } from 'adhan';
-import { ThemedView } from '../../components/ThemedView';
-import { useThemeColor } from '@/hooks/useThemeColor';
-import { NextPrayerCountdown } from '../../components/prayer/NextPrayerCountdown';
-import { ActionButtons } from '../../components/prayer/ActionButtons';
-import { PrayerTimeCard } from '../../components/prayer/PrayerTimeCard';
-import { styles } from '../../src/styles/PrayertimeScreen.styles';
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import {
+  View,
+  ScrollView,
+  RefreshControl,
+  Text,
+  Platform,
+  Animated,
+} from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
+import * as Haptics from "expo-haptics";
+import {
+  PrayerTimes,
+  Coordinates,
+  CalculationMethod,
+  Madhab,
+  Prayer,
+} from "adhan";
+import { ThemedView } from "../../components/ThemedView";
+import { useThemeColor } from "@/hooks/useThemeColor";
+import { NextPrayerCountdown } from "../../components/prayer/NextPrayerCountdown";
+import { ActionButtons } from "../../components/prayer/ActionButtons";
+import { PrayerTimeCard } from "../../components/prayer/PrayerTimeCard";
+import { styles } from "../../src/styles/PrayertimeScreen.styles";
 
 type PrayerName = keyof typeof PRAYER_NAMES;
 type PrayerInfo = {
@@ -22,47 +35,47 @@ type PrayerInfo = {
 };
 
 const PRAYER_NAMES: Record<string, PrayerInfo> = {
-  fajr: { 
-    english: 'Fajr', 
-    arabic: 'الفجر', 
-    color: ['#4A148C', '#7B1FA2'],
-    icon: 'cloud-sun',
-    description: 'Dawn Prayer'
+  fajr: {
+    english: "Fajr",
+    arabic: "الفجر",
+    color: ["#4A148C", "#7B1FA2"],
+    icon: "cloud-sun",
+    description: "Dawn Prayer",
   },
-  sunrise: { 
-    english: 'Sunrise', 
-    arabic: 'الشروق', 
-    color: ['#FF6F00', '#FFA000'],
-    icon: 'sun',
-    description: 'Sunrise Time'
+  sunrise: {
+    english: "Sunrise",
+    arabic: "الشروق",
+    color: ["#FF6F00", "#FFA000"],
+    icon: "sun",
+    description: "Sunrise Time",
   },
-  dhuhr: { 
-    english: 'Dhuhr', 
-    arabic: 'الظهر', 
-    color: ['#0277BD', '#039BE5'],
-    icon: 'sun',
-    description: 'Noon Prayer'
+  dhuhr: {
+    english: "Dhuhr",
+    arabic: "الظهر",
+    color: ["#0277BD", "#039BE5"],
+    icon: "sun",
+    description: "Noon Prayer",
   },
-  asr: { 
-    english: 'Asr', 
-    arabic: 'العصر', 
-    color: ['#00695C', '#00897B'],
-    icon: 'cloud-sun',
-    description: 'Afternoon Prayer'
+  asr: {
+    english: "Asr",
+    arabic: "العصر",
+    color: ["#00695C", "#00897B"],
+    icon: "cloud-sun",
+    description: "Afternoon Prayer",
   },
-  maghrib: { 
-    english: 'Maghrib', 
-    arabic: 'المغرب', 
-    color: ['#880E4F', '#D81B60'],
-    icon: 'cloud-sun-rain',
-    description: 'Sunset Prayer'
+  maghrib: {
+    english: "Maghrib",
+    arabic: "المغرب",
+    color: ["#880E4F", "#D81B60"],
+    icon: "cloud-sun-rain",
+    description: "Sunset Prayer",
   },
-  isha: { 
-    english: 'Isha', 
-    arabic: 'العشاء', 
-    color: ['#1A237E', '#3949AB'],
-    icon: 'moon',
-    description: 'Night Prayer'
+  isha: {
+    english: "Isha",
+    arabic: "العشاء",
+    color: ["#1A237E", "#3949AB"],
+    icon: "moon",
+    description: "Night Prayer",
   },
 };
 
@@ -81,29 +94,43 @@ type CustomPrayerTimes = {
 
 function PrayerTimesScreen() {
   const insets = useSafeAreaInsets();
-  const [prayerTimes, setPrayerTimes] = useState<CustomPrayerTimes | null>(null);
+  const [prayerTimes, setPrayerTimes] = useState<CustomPrayerTimes | null>(
+    null
+  );
   const [nextPrayer, setNextPrayer] = useState<PrayerName | null>(null);
   const [timeToNextPrayer, setTimeToNextPrayer] = useState({
-    hours: '--',
-    minutes: '--',
-    seconds: '--',
-    name: 'Loading...'
+    hours: "--",
+    minutes: "--",
+    seconds: "--",
+    name: "Loading...",
   });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [locationName, setLocationName] = useState('Location unavailable');
+  const [locationName, setLocationName] = useState("Location unavailable");
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(50)).current;
-  
+
   // Get theme colors
-  const backgroundColor = useThemeColor({ light: '#f8f9fa', dark: '#121212' }, 'background');
-  const textColor = useThemeColor({ light: '#000000', dark: '#ffffff' }, 'text');
-  const primaryColor = useThemeColor({ light: '#2196F3', dark: '#1976D2' }, 'text');
-  const accentColor = useThemeColor({ light: '#FF9800', dark: '#FFA726' }, 'text');
+  const backgroundColor = useThemeColor(
+    { light: "#f8f9fa", dark: "#121212" },
+    "background"
+  );
+  const textColor = useThemeColor(
+    { light: "#000000", dark: "#ffffff" },
+    "text"
+  );
+  const primaryColor = useThemeColor(
+    { light: "#2196F3", dark: "#1976D2" },
+    "text"
+  );
+  const accentColor = useThemeColor(
+    { light: "#FF9800", dark: "#FFA726" },
+    "text"
+  );
 
   // Handle refresh
   const onRefresh = useCallback(() => {
@@ -112,50 +139,59 @@ function PrayerTimesScreen() {
   }, []);
 
   // Calculate prayer progress percentage
-  const getProgressForPrayer = useCallback((prayer: PrayerName) => {
-    if (!prayerTimes || !prayer || !coordinates) return 0;
-    
-    try {
-      const now = new Date();
-      const prayerTime = prayerTimes[prayer];
-      
-      if (!prayerTime || typeof prayerTime !== 'object') return 0;
-      
-      // Find next prayer after this one
-      const prayers = Object.keys(PRAYER_NAMES);
-      const currentIndex = prayers.indexOf(prayer);
-      
-      if (currentIndex === -1) return 0;
-      
-      let nextIndex = (currentIndex + 1) % prayers.length;
-      let nextPrayerName = prayers[nextIndex];
-      let nextTime = prayerTimes[nextPrayerName];
-      
-      // If the next prayer is on the next day, use a 24-hour window
-      if (nextTime && nextTime < prayerTime) {
-        const tomorrow = new Date(now);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        const params = CalculationMethod.Karachi();
-        params.madhab = Madhab.Hanafi;
-        
-        const tomorrowPrayerTimes = new PrayerTimes(coordinates, tomorrow, params);
-        const nextTimeTemp = tomorrowPrayerTimes.timeForPrayer(PRAYER_MAP[nextPrayerName as keyof typeof PRAYER_MAP]);
-        if (nextTimeTemp) {
-          nextTime = nextTimeTemp;
+  const getProgressForPrayer = useCallback(
+    (prayer: PrayerName) => {
+      if (!prayerTimes || !prayer || !coordinates) return 0;
+
+      try {
+        const now = new Date();
+        const prayerTime = prayerTimes[prayer];
+
+        if (!prayerTime || typeof prayerTime !== "object") return 0;
+
+        // Find next prayer after this one
+        const prayers = Object.keys(PRAYER_NAMES);
+        const currentIndex = prayers.indexOf(prayer);
+
+        if (currentIndex === -1) return 0;
+
+        let nextIndex = (currentIndex + 1) % prayers.length;
+        let nextPrayerName = prayers[nextIndex];
+        let nextTime = prayerTimes[nextPrayerName];
+
+        // If the next prayer is on the next day, use a 24-hour window
+        if (nextTime && nextTime < prayerTime) {
+          const tomorrow = new Date(now);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          const params = CalculationMethod.Karachi();
+          params.madhab = Madhab.Hanafi;
+
+          const tomorrowPrayerTimes = new PrayerTimes(
+            coordinates,
+            tomorrow,
+            params
+          );
+          const nextTimeTemp = tomorrowPrayerTimes.timeForPrayer(
+            PRAYER_MAP[nextPrayerName as keyof typeof PRAYER_MAP]
+          );
+          if (nextTimeTemp) {
+            nextTime = nextTimeTemp;
+          }
         }
+
+        if (!nextTime) return 0;
+
+        const totalDuration = nextTime.getTime() - prayerTime.getTime();
+        const elapsed = now.getTime() - prayerTime.getTime();
+
+        return Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
+      } catch (error) {
+        console.error("Error calculating prayer progress:", error);
+        return 0;
       }
-      
-      if (!nextTime) return 0;
-      
-      const totalDuration = nextTime.getTime() - prayerTime.getTime();
-      const elapsed = now.getTime() - prayerTime.getTime();
-      
-      return Math.min(100, Math.max(0, (elapsed / totalDuration) * 100));
-    } catch (error) {
-      console.error('Error calculating prayer progress:', error);
-      return 0;
-    }
-  }, [prayerTimes, coordinates]);
+    },
+    [prayerTimes, coordinates]
+  );
 
   // Find next prayer based on current time
   const findNextPrayer = useCallback(() => {
@@ -167,13 +203,13 @@ function PrayerTimesScreen() {
 
     for (const prayer of prayers) {
       const prayerTime = prayerTimes[prayer as PrayerName];
-      if (!prayerTime || typeof prayerTime !== 'object') continue;
+      if (!prayerTime || typeof prayerTime !== "object") continue;
 
       if (prayerTime.getTime() > now.getTime()) {
         setNextPrayer(prayer as PrayerName);
-        setTimeToNextPrayer(prev => ({
+        setTimeToNextPrayer((prev) => ({
           ...prev,
-          name: PRAYER_NAMES[prayer as PrayerName]?.english || prayer
+          name: PRAYER_NAMES[prayer as PrayerName]?.english || prayer,
         }));
         foundNext = true;
         break;
@@ -196,17 +232,23 @@ function PrayerTimesScreen() {
 
       const calculationMethod = CalculationMethod.Karachi();
       calculationMethod.madhab = Madhab.Hanafi;
-      
-      const tomorrowPrayerTimes = new PrayerTimes(coordinates, tomorrow, calculationMethod);
-      
+
+      const tomorrowPrayerTimes = new PrayerTimes(
+        coordinates,
+        tomorrow,
+        calculationMethod
+      );
+
       // Create empty object for prayer times
       const prayerTimesWithDates: CustomPrayerTimes = {} as CustomPrayerTimes;
-      
+
       // Handle each prayer time
-      Object.keys(PRAYER_NAMES).forEach(prayer => {
+      Object.keys(PRAYER_NAMES).forEach((prayer) => {
         try {
-          const prayerTimeDate = tomorrowPrayerTimes.timeForPrayer(PRAYER_MAP[prayer as keyof typeof PRAYER_MAP]);
-          
+          const prayerTimeDate = tomorrowPrayerTimes.timeForPrayer(
+            PRAYER_MAP[prayer as keyof typeof PRAYER_MAP]
+          );
+
           if (prayerTimeDate) {
             prayerTimesWithDates[prayer as PrayerName] = prayerTimeDate;
           }
@@ -214,17 +256,17 @@ function PrayerTimesScreen() {
           console.error(`Error processing ${prayer} time:`, error);
         }
       });
-      
+
       const firstPrayer = Object.keys(PRAYER_NAMES)[0];
-      
+
       setNextPrayer(firstPrayer as PrayerName);
-      setTimeToNextPrayer(prev => ({
+      setTimeToNextPrayer((prev) => ({
         ...prev,
-        name: PRAYER_NAMES[firstPrayer as PrayerName]?.english || firstPrayer
+        name: PRAYER_NAMES[firstPrayer as PrayerName]?.english || firstPrayer,
       }));
     } catch (error) {
-      console.error('Error calculating tomorrow prayer times:', error);
-      setErrorMsg('Error calculating tomorrow prayer times');
+      console.error("Error calculating tomorrow prayer times:", error);
+      setErrorMsg("Error calculating tomorrow prayer times");
     }
   }, [coordinates]);
 
@@ -233,18 +275,20 @@ function PrayerTimesScreen() {
     try {
       setIsLoading(true);
       setErrorMsg(null);
-      
+
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        throw new Error('Permission to access location was denied');
+      if (status !== "granted") {
+        throw new Error("Permission to access location was denied");
       }
 
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced
+        accuracy: Location.Accuracy.Balanced,
       });
 
       if (!location?.coords) {
-        throw new Error('Could not get location. Please check your GPS settings.');
+        throw new Error(
+          "Could not get location. Please check your GPS settings."
+        );
       }
 
       const { latitude, longitude } = location.coords;
@@ -254,48 +298,60 @@ function PrayerTimesScreen() {
       try {
         const [address] = await Location.reverseGeocodeAsync({
           latitude,
-          longitude
+          longitude,
         });
-        
+
         if (address) {
           const locationParts = [
             address.city,
             address.region,
-            address.country
+            address.country,
           ].filter(Boolean);
-          setLocationName(locationParts.join(', ') || 'Location found');
+          setLocationName(locationParts.join(", ") || "Location found");
         } else {
           setLocationName(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
         }
       } catch (error) {
-        console.error('Error getting location name:', error);
+        console.error("Error getting location name:", error);
         // Fallback to coordinates if reverse geocoding fails
         setLocationName(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
       }
 
       const params = CalculationMethod.Karachi();
       params.madhab = Madhab.Hanafi;
-      
+
       const date = new Date();
-      const calculatedPrayerTimes = new PrayerTimes(newCoordinates, date, params);
-      
+      const calculatedPrayerTimes = new PrayerTimes(
+        newCoordinates,
+        date,
+        params
+      );
+
       // Create empty object for prayer times
       const prayerTimesWithDates: CustomPrayerTimes = {} as CustomPrayerTimes;
-      
+
       // Handle each prayer time
-      Object.keys(PRAYER_NAMES).forEach(prayer => {
+      Object.keys(PRAYER_NAMES).forEach((prayer) => {
         try {
-          const prayerTimeDate = calculatedPrayerTimes.timeForPrayer(PRAYER_MAP[prayer as keyof typeof PRAYER_MAP]);
-          
+          const prayerTimeDate = calculatedPrayerTimes.timeForPrayer(
+            PRAYER_MAP[prayer as keyof typeof PRAYER_MAP]
+          );
+
           if (prayerTimeDate) {
             // If prayer time has already passed today, set it for tomorrow
             if (prayerTimeDate.getTime() < date.getTime()) {
               const tomorrow = new Date(date);
               tomorrow.setDate(tomorrow.getDate() + 1);
-              
-              const tomorrowPrayerTimes = new PrayerTimes(newCoordinates, tomorrow, params);
-              const tomorrowTime = tomorrowPrayerTimes.timeForPrayer(PRAYER_MAP[prayer as keyof typeof PRAYER_MAP]);
-              
+
+              const tomorrowPrayerTimes = new PrayerTimes(
+                newCoordinates,
+                tomorrow,
+                params
+              );
+              const tomorrowTime = tomorrowPrayerTimes.timeForPrayer(
+                PRAYER_MAP[prayer as keyof typeof PRAYER_MAP]
+              );
+
               if (tomorrowTime) {
                 prayerTimesWithDates[prayer as PrayerName] = tomorrowTime;
               }
@@ -307,33 +363,37 @@ function PrayerTimesScreen() {
           console.error(`Error processing ${prayer} time:`, error);
         }
       });
-      
+
       setPrayerTimes(prayerTimesWithDates);
-      
+
       // Start animations
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 800,
-          useNativeDriver: true
+          useNativeDriver: true,
         }),
         Animated.timing(slideAnim, {
           toValue: 0,
           duration: 800,
-          useNativeDriver: true
-        })
+          useNativeDriver: true,
+        }),
       ]).start();
-      
+
       setIsLoading(false);
     } catch (error) {
-      console.error('Error calculating prayer times:', error);
-      setErrorMsg(error instanceof Error ? error.message : 'Error calculating prayer times');
-      setTimeToNextPrayer(prev => ({ 
-        ...prev, 
-        hours: '--',
-        minutes: '--',
-        seconds: '--',
-        name: 'Error calculating times'
+      console.error("Error calculating prayer times:", error);
+      setErrorMsg(
+        error instanceof Error
+          ? error.message
+          : "Error calculating prayer times"
+      );
+      setTimeToNextPrayer((prev) => ({
+        ...prev,
+        hours: "--",
+        minutes: "--",
+        seconds: "--",
+        name: "Error calculating times",
       }));
       setIsLoading(false);
     }
@@ -342,7 +402,7 @@ function PrayerTimesScreen() {
   // Update countdown timer
   useEffect(() => {
     if (!prayerTimes || !nextPrayer || isLoading) return;
-    
+
     const updateTimer = () => {
       try {
         const prayerTime = prayerTimes[nextPrayer];
@@ -354,7 +414,7 @@ function PrayerTimesScreen() {
         if (diff <= 0) {
           // Prayer time has arrived, find next prayer
           findNextPrayer();
-          if (Platform.OS !== 'web') {
+          if (Platform.OS !== "web") {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
           }
         } else {
@@ -363,14 +423,14 @@ function PrayerTimesScreen() {
           const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
           setTimeToNextPrayer({
-            hours: hours.toString().padStart(2, '0'),
-            minutes: minutes.toString().padStart(2, '0'),
-            seconds: seconds.toString().padStart(2, '0'),
-            name: PRAYER_NAMES[nextPrayer]?.english || nextPrayer
+            hours: hours.toString().padStart(2, "0"),
+            minutes: minutes.toString().padStart(2, "0"),
+            seconds: seconds.toString().padStart(2, "0"),
+            name: PRAYER_NAMES[nextPrayer]?.english || nextPrayer,
           });
         }
       } catch (error) {
-        console.error('Error updating timer:', error);
+        console.error("Error updating timer:", error);
       }
     };
 
@@ -388,86 +448,88 @@ function PrayerTimesScreen() {
   // Initial load
   useEffect(() => {
     calculatePrayerTimes();
-    
+
     // Request notification permissions
     registerForPushNotifications();
-    
+
     return () => {
       // Clean up any subscriptions if needed
     };
   }, []);
-  
+
   // Register for push notifications
   const registerForPushNotifications = async () => {
     try {
-      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      const { status: existingStatus } =
+        await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
-      
-      if (existingStatus !== 'granted') {
+
+      if (existingStatus !== "granted") {
         const { status } = await Notifications.requestPermissionsAsync();
         finalStatus = status;
       }
-      
-      if (finalStatus !== 'granted') {
-        console.log('Failed to get push token for notifications');
+
+      if (finalStatus !== "granted") {
+        console.log("Failed to get push token for notifications");
         return;
       }
     } catch (error) {
-      console.error('Error registering for notifications:', error);
+      console.error("Error registering for notifications:", error);
     }
   };
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         refreshControl={
-          <RefreshControl 
-            refreshing={refreshing} 
+          <RefreshControl
+            refreshing={refreshing}
             onRefresh={onRefresh}
             colors={[primaryColor]}
             tintColor={primaryColor}
           />
         }
       >
-        <Animated.View style={{ 
-          opacity: fadeAnim,
-          transform: [{ translateY: slideAnim }]
-        }}>
-          <NextPrayerCountdown 
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          }}
+        >
+          <NextPrayerCountdown
             timeToNextPrayer={timeToNextPrayer}
             primaryColor={primaryColor}
             error={errorMsg}
           />
-          
-          <ActionButtons
-            locationName={locationName}
-            onRefresh={onRefresh}
-          />
-          
-          {!isLoading && prayerTimes && Object.entries(PRAYER_NAMES).map(([prayer, info]) => {
-            const prayerTime = prayerTimes[prayer as PrayerName];
-            if (!prayerTime) return null;
-            
-            const isNext = prayer === nextPrayer;
-            const progress = getProgressForPrayer(prayer as PrayerName);
-            
-            return (
-              <PrayerTimeCard
-                key={prayer}
-                prayer={prayer}
-                info={info}
-                prayerTime={prayerTime}
-                isNext={isNext}
-                progress={progress}
-                onPress={() => {
-                  if (Platform.OS !== 'web') {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }
-                }}
-              />
-            );
-          })}
+
+          <ActionButtons locationName={locationName} onRefresh={onRefresh} />
+
+          {!isLoading &&
+            prayerTimes &&
+            Object.entries(PRAYER_NAMES).map(([prayer, info]) => {
+              const prayerTime = prayerTimes[prayer as PrayerName];
+              if (!prayerTime) return null;
+
+              const isNext = prayer === nextPrayer;
+              const progress = getProgressForPrayer(prayer as PrayerName);
+
+              return (
+                <PrayerTimeCard
+                  key={prayer}
+                  prayer={prayer}
+                  info={info}
+                  prayerTime={prayerTime}
+                  isNext={isNext}
+                  progress={progress}
+                  onPress={() => {
+                    if (Platform.OS !== "web") {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                  }}
+                />
+              );
+            })}
         </Animated.View>
       </ScrollView>
     </ThemedView>

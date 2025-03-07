@@ -10,7 +10,14 @@ import { ProgressIndicator } from '../../components/tasbih/ProgressIndicator';
 import { CustomDhikrModal } from '../../components/tasbih/CustomDhikrModal';
 import { CompletionModal } from '../../components/tasbih/CompletionModal';
 import { CustomLimitModal } from '../../components/tasbih/CustomLimitModal';
-import { dhikrOptions, DhikrOption, SessionHistory } from '../../components/tasbih/constants';
+import { dhikrOptions, SessionHistory } from '../../components/tasbih/constants';
+
+export type DhikrOption = {
+  id: string;
+  name: string;
+  count: number;
+  color: [string, string];
+};
 
 export default function TasbihScreen() {
   const [selectedDhikr, setSelectedDhikr] = useState<DhikrOption>(dhikrOptions[0]);

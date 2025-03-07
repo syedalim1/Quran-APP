@@ -3,7 +3,7 @@ import { StyleSheet, TouchableOpacity, ScrollView, Animated, Dimensions, Platfor
 import { ThemedText } from '../ThemedText';
 import { ThemedView } from '../ThemedView';
 import { LinearGradient } from 'expo-linear-gradient';
-import { DhikrOption } from '../../app/(tabs)/tasbih';
+import { DhikrOption } from './types';
 import { FontAwesome5 } from '@expo/vector-icons';
 
 const { width } = Dimensions.get('window');

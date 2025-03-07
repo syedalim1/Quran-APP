@@ -358,7 +358,7 @@ export function Counter({
             </ThemedView>
           )}
         </ThemedView>
-        
+{/*         
         {showCompletionIndicator && (
           <Animated.View 
             style={[
@@ -378,7 +378,7 @@ export function Counter({
               </ThemedText>
             </LinearGradient>
           </Animated.View>
-        )}
+        )} */}
       </LinearGradient>
       
       {/* Settings Buttons */}
@@ -933,6 +933,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 4,
     letterSpacing: 1,
+    padding: 10,
   },
   autoCountText: {
     fontSize: isSmallDevice ? 12 : isLargeDevice ? 16 : 14,
