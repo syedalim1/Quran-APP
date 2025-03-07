@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
 import * as Haptics from 'expo-haptics';
-import { PrayerTimes, Coordinates, CalculationMethod, Madhab } from 'adhan';
+import { PrayerTimes, Coordinates, CalculationMethod, Madhab, Prayer } from 'adhan';
 import { ThemedView } from '../../components/ThemedView';
 import { useThemeColor } from '@/hooks/useThemeColor';
 import { NextPrayerCountdown } from '../../components/prayer/NextPrayerCountdown';
@@ -65,6 +65,15 @@ const PRAYER_NAMES: Record<string, PrayerInfo> = {
     description: 'Night Prayer'
   },
 };
+
+const PRAYER_MAP = {
+  fajr: Prayer.Fajr,
+  sunrise: Prayer.Sunrise,
+  dhuhr: Prayer.Dhuhr,
+  asr: Prayer.Asr,
+  maghrib: Prayer.Maghrib,
+  isha: Prayer.Isha,
+} as const;
 
 type CustomPrayerTimes = {
   [K in PrayerName]: Date;
@@ -130,7 +139,10 @@ function PrayerTimesScreen() {
         params.madhab = Madhab.Hanafi;
         
         const tomorrowPrayerTimes = new PrayerTimes(coordinates, tomorrow, params);
-        nextTime = tomorrowPrayerTimes[nextPrayerName as keyof PrayerTimes];
+        const nextTimeTemp = tomorrowPrayerTimes.timeForPrayer(PRAYER_MAP[nextPrayerName as keyof typeof PRAYER_MAP]);
+        if (nextTimeTemp) {
+          nextTime = nextTimeTemp;
+        }
       }
       
       if (!nextTime) return 0;
@@ -193,9 +205,7 @@ function PrayerTimesScreen() {
       // Handle each prayer time
       Object.keys(PRAYER_NAMES).forEach(prayer => {
         try {
-          // Get the prayer time from the Adhan library
-          const prayerMethod = prayer as keyof PrayerTimes;
-          const prayerTimeDate = tomorrowPrayerTimes.timeForPrayer(prayerMethod);
+          const prayerTimeDate = tomorrowPrayerTimes.timeForPrayer(PRAYER_MAP[prayer as keyof typeof PRAYER_MAP]);
           
           if (prayerTimeDate) {
             prayerTimesWithDates[prayer as PrayerName] = prayerTimeDate;
@@ -242,7 +252,11 @@ function PrayerTimesScreen() {
       setCoordinates(newCoordinates);
 
       try {
-        const [address] = await Location.reverseGeocodeAsync({ latitude, longitude });
+        const [address] = await Location.reverseGeocodeAsync({
+          latitude,
+          longitude
+        });
+        
         if (address) {
           const locationParts = [
             address.city,
@@ -250,10 +264,13 @@ function PrayerTimesScreen() {
             address.country
           ].filter(Boolean);
           setLocationName(locationParts.join(', ') || 'Location found');
+        } else {
+          setLocationName(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
         }
       } catch (error) {
         console.error('Error getting location name:', error);
-        setLocationName('Location found');
+        // Fallback to coordinates if reverse geocoding fails
+        setLocationName(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
       }
 
       const params = CalculationMethod.Karachi();
@@ -268,9 +285,7 @@ function PrayerTimesScreen() {
       // Handle each prayer time
       Object.keys(PRAYER_NAMES).forEach(prayer => {
         try {
-          // Get the prayer time from the Adhan library
-          const prayerMethod = prayer as keyof PrayerTimes;
-          const prayerTimeDate = calculatedPrayerTimes.timeForPrayer(prayerMethod);
+          const prayerTimeDate = calculatedPrayerTimes.timeForPrayer(PRAYER_MAP[prayer as keyof typeof PRAYER_MAP]);
           
           if (prayerTimeDate) {
             // If prayer time has already passed today, set it for tomorrow
@@ -279,7 +294,7 @@ function PrayerTimesScreen() {
               tomorrow.setDate(tomorrow.getDate() + 1);
               
               const tomorrowPrayerTimes = new PrayerTimes(newCoordinates, tomorrow, params);
-              const tomorrowTime = tomorrowPrayerTimes.timeForPrayer(prayerMethod);
+              const tomorrowTime = tomorrowPrayerTimes.timeForPrayer(PRAYER_MAP[prayer as keyof typeof PRAYER_MAP]);
               
               if (tomorrowTime) {
                 prayerTimesWithDates[prayer as PrayerName] = tomorrowTime;

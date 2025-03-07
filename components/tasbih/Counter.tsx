@@ -5,10 +5,15 @@ import { ThemedText } from '../ThemedText';
 import { LinearGradient } from 'expo-linear-gradient';
 import { FontAwesome, MaterialCommunityIcons, Ionicons, Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
-import { DhikrOption } from '../../app/(tabs)/tasbih';
+import { DhikrOption } from './constants';
 
-const { width, height } = Dimensions.get('window');
-const BUTTON_SIZE = Math.min(width, height) * 0.35; // Responsive button size
+// Calculate responsive sizes
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const isSmallDevice = SCREEN_WIDTH < 375;
+const isLargeDevice = SCREEN_WIDTH >= 768;
+const BUTTON_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT) * (isSmallDevice ? 0.3 : isLargeDevice ? 0.25 : 0.35);
+const RESET_BUTTON_SIZE = BUTTON_SIZE * (isSmallDevice ? 0.45 : 0.4);
+const SETTING_BUTTON_SIZE = BUTTON_SIZE * (isSmallDevice ? 0.3 : 0.25);
 
 interface CounterProps {
   selectedDhikr: DhikrOption;
@@ -254,28 +259,31 @@ export function Counter({
   return (
     <ThemedView style={styles.counterContainer}>
       <LinearGradient
-        colors={['#f0f8f0', '#e8f5e8']}
+        colors={['#000000', '#000000']}
         style={styles.dhikrInfoContainer}
       >
         <ThemedText style={styles.arabicText}>{selectedDhikr.arabicText}</ThemedText>
-        <ThemedText style={styles.dhikrName}>{selectedDhikr.name}</ThemedText>
+        <ThemedText style={[styles.dhikrName, { color: selectedDhikr.color[0] }]}>{selectedDhikr.name}</ThemedText>
         
         {/* Enhanced Progress Bar with Target Display */}
         <ThemedView style={styles.progressWrapper}>
-          <ThemedView style={styles.progressContainer}>
+          <LinearGradient
+            colors={['#ffffff', '#f8f9ff']}
+            style={styles.progressContainer}
+          >
             <Animated.View 
               style={[
                 styles.progressBar, 
                 { 
-                  width: `${progressPercentage}%`, 
-                  backgroundColor: progressColor 
+                  width: `${progressPercentage}%`,
+                  backgroundColor: progressColor,
                 }
               ]} 
             />
             <ThemedText style={styles.progressText}>
-              {count} / {targetCount}
+              {count.toString().padStart(2, '0')} / {targetCount.toString().padStart(2, '0')}
             </ThemedText>
-          </ThemedView>
+          </LinearGradient>
           
           {setTargetCount && (
             <ThemedView style={styles.limitControls}>
@@ -284,7 +292,7 @@ export function Counter({
                 onPress={() => adjustTargetCount(-10)}
               >
                 <LinearGradient
-                  colors={['#f44336', '#d32f2f'] as readonly [string, string]}
+                  colors={['#ff6b6b', '#f03e3e']}
                   style={styles.limitButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -298,7 +306,7 @@ export function Counter({
                 onPress={() => adjustTargetCount(-1)}
               >
                 <LinearGradient
-                  colors={['#ff9800', '#ef6c00'] as readonly [string, string]}
+                  colors={['#ffd43b', '#fab005']}
                   style={styles.limitButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -309,13 +317,13 @@ export function Counter({
               
               <ThemedView style={styles.limitIndicator}>
                 <LinearGradient
-                  colors={selectedDhikr.color as unknown as readonly [string, string]}
+                  colors={[selectedDhikr.color[0], selectedDhikr.color[1], selectedDhikr.color[1]] as readonly [string, string, string]}
                   style={styles.limitIndicatorGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
                   <ThemedText style={styles.limitText}>
-                    {targetCount}
+                    {targetCount.toString().padStart(2, '0')}
                   </ThemedText>
                 </LinearGradient>
               </ThemedView>
@@ -325,7 +333,7 @@ export function Counter({
                 onPress={() => adjustTargetCount(1)}
               >
                 <LinearGradient
-                  colors={['#4caf50', '#2e7d32'] as readonly [string, string]}
+                  colors={['#51cf66', '#37b24d']}
                   style={styles.limitButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -339,7 +347,7 @@ export function Counter({
                 onPress={() => adjustTargetCount(10)}
               >
                 <LinearGradient
-                  colors={['#2196f3', '#1565c0'] as readonly [string, string]}
+                  colors={['#339af0', '#1c7ed6']}
                   style={styles.limitButtonGradient}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
@@ -359,12 +367,12 @@ export function Counter({
             ]}
           >
             <LinearGradient
-              colors={selectedDhikr.color as unknown as readonly [string, string]}
+              colors={[selectedDhikr.color[0], selectedDhikr.color[1], selectedDhikr.color[1]] as readonly [string, string, string]}
               style={styles.completionGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <FontAwesome name="check-circle" size={20} color="#fff" style={{marginRight: 10}} />
+              <FontAwesome name="check-circle" size={24} color="#fff" style={{marginRight: 10}} />
               <ThemedText style={styles.completionText}>
                 Completed! Tap to continue
               </ThemedText>
@@ -494,7 +502,7 @@ export function Counter({
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <FontAwesome name="refresh" size={24} color="#fff" />
+              <FontAwesome name="refresh" size={RESET_BUTTON_SIZE * 0.4} color="#fff" />
             </LinearGradient>
           </TouchableOpacity>
         </Animated.View>
@@ -532,9 +540,13 @@ export function Counter({
                 ]} 
               />
               <View style={styles.countButtonInner}>
-                <ThemedText style={styles.countButtonText}>{count}</ThemedText>
+                <ThemedText style={styles.countButtonText}>
+                  {count.toString().padStart(2, '0')}
+                </ThemedText>
                 {autoCount && (
-                  <ThemedText style={styles.autoCountText}>Auto</ThemedText>
+                  <ThemedText style={styles.autoCountText}>
+                    Auto
+                  </ThemedText>
                 )}
               </View>
             </LinearGradient>
@@ -549,48 +561,71 @@ const styles = StyleSheet.create({
   counterContainer: {
     flex: 1,
     justifyContent: 'space-between',
+    paddingHorizontal: SCREEN_WIDTH * 0.05,
+    backgroundColor:"#000000"
   },
   dhikrInfoContainer: {
     alignItems: 'center',
-    padding: 20,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    padding: SCREEN_WIDTH * 0.05,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    backgroundColor:"#000000",
+    color:"#000000"
   },
   arabicText: {
-    fontSize: 36,
-    marginBottom: 10,
+    fontSize: isSmallDevice ? 32 : 40,
+    padding: 20,
+    margin: 10,
     textAlign: 'center',
-    color: '#333',
+    color: '#ffffff',
     fontWeight: 'bold',
-  },
-  dhikrName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#4CAF50',
     textShadowColor: 'rgba(0, 0, 0, 0.1)',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 1,
+    textShadowRadius: 2,
+  },
+  dhikrName: {
+    fontSize: isSmallDevice ? 18 : 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   progressWrapper: {
     width: '100%',
+    backgroundColor: 'transparent',
   },
   progressContainer: {
     width: '100%',
-    height: 30,
-    backgroundColor: '#fff',
-    borderRadius: 15,
+    height: isSmallDevice ? 28 : 35,
+    borderRadius: 20,
     overflow: 'hidden',
     position: 'relative',
-    elevation: 2,
+    backgroundColor: 'transparent',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  progressBar: {
+    height: '100%',
+    borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
-  },
-  progressBar: {
-    height: '100%',
-    borderRadius: 15,
   },
   progressText: {
     position: 'absolute',
@@ -601,7 +636,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     textAlignVertical: 'center',
     fontWeight: 'bold',
-    color: '#333',
+    color: '#2d3436',
+    fontSize: isSmallDevice ? 15 : 18,
+    textShadowColor: 'rgba(255, 255, 255, 0.8)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   limitControls: {
     flexDirection: 'row',
@@ -610,52 +649,53 @@ const styles = StyleSheet.create({
     marginTop: 15,
     marginBottom: 5,
     paddingHorizontal: 5,
+    backgroundColor:"#000000"
   },
   limitButton: {
-    borderRadius: 8,
+    borderRadius: 12,
     marginHorizontal: 3,
     overflow: 'hidden',
-    minWidth: 40,
+    minWidth: isSmallDevice ? 38 : 45,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 2,
+        shadowOpacity: 0.25,
+        shadowRadius: 3,
       },
       android: {
-        elevation: 3,
+        elevation: 4,
       },
     }),
   },
   limitButtonGradient: {
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    paddingHorizontal: isSmallDevice ? 8 : 12,
+    paddingVertical: isSmallDevice ? 10 : 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   limitButtonText: {
-    fontSize: 16,
+    fontSize: isSmallDevice ? 14 : 16,
     fontWeight: 'bold',
     color: '#fff',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 1,
+    textShadowRadius: 2,
   },
   limitIndicator: {
     marginHorizontal: 8,
-    borderRadius: 8,
+    borderRadius: 12,
     overflow: 'hidden',
-    minWidth: 60,
+    minWidth: 70,
     ...Platform.select({
       ios: {
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.3,
-        shadowRadius: 3,
+        shadowRadius: 4,
       },
       android: {
-        elevation: 4,
+        elevation: 5,
       },
     }),
   },
@@ -666,27 +706,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   limitText: {
-    fontSize: 18,
+    fontSize: isSmallDevice ? 18 : 22,
     fontWeight: 'bold',
     color: '#fff',
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 2,
+    textShadowRadius: 3,
+    letterSpacing: 1,
   },
   completionIndicator: {
     marginTop: 15,
-    borderRadius: 10,
+    borderRadius: 15,
     overflow: 'hidden',
     width: '100%',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.2,
-        shadowRadius: 2,
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
       },
       android: {
-        elevation: 3,
+        elevation: 5,
       },
     }),
   },
@@ -694,26 +735,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 12,
+    padding: 15,
   },
   completionText: {
     color: '#fff',
     fontWeight: 'bold',
     textAlign: 'center',
-    fontSize: 16,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    fontSize: isSmallDevice ? 16 : 18,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 1,
+    textShadowRadius: 2,
+    letterSpacing: 0.5,
   },
   settingsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginVertical: 20,
+    backgroundColor:"#000000"
   },
   settingButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: SETTING_BUTTON_SIZE,
+    height: SETTING_BUTTON_SIZE,
+    borderRadius: SETTING_BUTTON_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
     marginHorizontal: 10,
@@ -753,7 +796,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'transparent',
     padding: 10,
     borderRadius: 20,
     marginBottom: 10,
@@ -803,6 +846,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 40,
+    backgroundColor:"#000000"
   },
   resetButtonContainer: {
     marginRight: 20,
@@ -819,9 +863,9 @@ const styles = StyleSheet.create({
     }),
   },
   resetButton: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: RESET_BUTTON_SIZE,
+    height: RESET_BUTTON_SIZE,
+    borderRadius: RESET_BUTTON_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -836,12 +880,12 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 8,
+        elevation: 12,
       },
     }),
   },
@@ -852,6 +896,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   countButtonGradient: {
     width: '100%',
@@ -859,34 +905,43 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderRadius: BUTTON_SIZE / 2,
+    padding: BUTTON_SIZE * 0.1,
   },
   glowEffect: {
     position: 'absolute',
-    width: BUTTON_SIZE * 1.2,
-    height: BUTTON_SIZE * 1.2,
-    borderRadius: BUTTON_SIZE * 0.6,
+    width: BUTTON_SIZE * 1.4,
+    height: BUTTON_SIZE * 1.4,
+    borderRadius: BUTTON_SIZE * 0.7,
     opacity: 0,
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   countButtonInner: {
     alignItems: 'center',
     justifyContent: 'center',
-    
+    width: '100%',
+    height: '100%',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: BUTTON_SIZE / 2,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   countButtonText: {
-    fontSize: BUTTON_SIZE * 0.3,
+    fontSize: BUTTON_SIZE * (isSmallDevice ? 0.28 : isLargeDevice ? 0.22 : 0.25),
     fontWeight: 'bold',
     color: '#fff',
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    textShadowRadius: 4,
+    letterSpacing: 1,
   },
   autoCountText: {
-    fontSize: 14,
+    fontSize: isSmallDevice ? 12 : isLargeDevice ? 16 : 14,
     color: '#fff',
-    opacity: 0.8,
+    opacity: 0.9,
     marginTop: 5,
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
+    letterSpacing: 0.5,
   },
 }); 

@@ -43,9 +43,10 @@ export const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
     opacity: 0.9,
+    padding: 10,
   },
   nextPrayerName: {
-    padding: 10,
+    margin: 15,
     fontSize: 35,
     color: '#fff',
     fontWeight: 'bold',

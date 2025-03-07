@@ -111,6 +111,7 @@ export function DhikrOptions({ dhikrOptions, selectedDhikr, onSelectDhikr }: Dhi
 const styles = StyleSheet.create({
   container: {
     marginBottom: 10,
+    backgroundColor:"#000000"
   },
   sectionTitle: {
     fontSize: 16,

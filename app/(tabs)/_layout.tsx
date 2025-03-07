@@ -46,20 +46,6 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <FontAwesome name="calendar" size={24} color={color} />,
         }}
       />
-      <Tabs.Screen
-        name="daily"
-        options={{
-          title: 'Daily',
-          tabBarIcon: ({ color }) => <FontAwesome name="quote-left" size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <FontAwesome name="info-circle" size={24} color={color} />,
-        }}
-      />
     </Tabs>
   );
 }

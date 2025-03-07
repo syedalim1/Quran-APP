@@ -172,6 +172,7 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 3,
     marginBottom: 10,
+    paddingTop: 10,
   },
   decorativeLine: {
     width: width * 0.3,
