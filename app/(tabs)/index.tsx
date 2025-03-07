@@ -201,74 +201,58 @@ function PrayerTimesScreen() {
     const prayers = Object.keys(PRAYER_NAMES);
     let foundNext = false;
 
-    for (const prayer of prayers) {
-      const prayerTime = prayerTimes[prayer as PrayerName];
-      if (!prayerTime || typeof prayerTime !== "object") continue;
+    // Create an array of prayers with their times for sorting
+    const prayerTimesList = prayers
+      .map(prayer => ({
+        name: prayer,
+        time: prayerTimes[prayer as PrayerName]
+      }))
+      .filter(p => p.time instanceof Date)
+      .sort((a, b) => a.time.getTime() - b.time.getTime());
 
-      if (prayerTime.getTime() > now.getTime()) {
-        setNextPrayer(prayer as PrayerName);
-        setTimeToNextPrayer((prev) => ({
+    // Find the next prayer that hasn't occurred yet
+    for (const { name, time } of prayerTimesList) {
+      if (time.getTime() > now.getTime()) {
+        setNextPrayer(name as PrayerName);
+        setTimeToNextPrayer(prev => ({
           ...prev,
-          name: PRAYER_NAMES[prayer as PrayerName]?.english || prayer,
+          name: PRAYER_NAMES[name]?.english || name
         }));
         foundNext = true;
         break;
       }
     }
 
-    if (!foundNext) {
-      calculateTomorrowFirstPrayer();
-    }
-  }, [prayerTimes, isLoading]);
-
-  // Calculate tomorrow's first prayer if all today's prayers have passed
-  const calculateTomorrowFirstPrayer = useCallback(() => {
-    if (!coordinates) return;
-
-    try {
-      const now = new Date();
+    // If no next prayer found today, get tomorrow's first prayer
+    if (!foundNext && coordinates) {
       const tomorrow = new Date(now);
       tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0); // Reset to start of day
 
-      const calculationMethod = CalculationMethod.Karachi();
-      calculationMethod.madhab = Madhab.Hanafi;
+      const params = CalculationMethod.Karachi();
+      params.madhab = Madhab.Hanafi;
 
-      const tomorrowPrayerTimes = new PrayerTimes(
-        coordinates,
-        tomorrow,
-        calculationMethod
-      );
+      const tomorrowPrayerTimes = new PrayerTimes(coordinates, tomorrow, params);
 
-      // Create empty object for prayer times
-      const prayerTimesWithDates: CustomPrayerTimes = {} as CustomPrayerTimes;
+      // Get all prayer times for tomorrow
+      const tomorrowPrayersList = prayers
+        .map(prayer => ({
+          name: prayer,
+          time: tomorrowPrayerTimes.timeForPrayer(PRAYER_MAP[prayer as keyof typeof PRAYER_MAP])
+        }))
+        .filter(p => p.time !== null)
+        .sort((a, b) => (a.time?.getTime() || 0) - (b.time?.getTime() || 0));
 
-      // Handle each prayer time
-      Object.keys(PRAYER_NAMES).forEach((prayer) => {
-        try {
-          const prayerTimeDate = tomorrowPrayerTimes.timeForPrayer(
-            PRAYER_MAP[prayer as keyof typeof PRAYER_MAP]
-          );
-
-          if (prayerTimeDate) {
-            prayerTimesWithDates[prayer as PrayerName] = prayerTimeDate;
-          }
-        } catch (error) {
-          console.error(`Error processing ${prayer} time:`, error);
-        }
-      });
-
-      const firstPrayer = Object.keys(PRAYER_NAMES)[0];
-
-      setNextPrayer(firstPrayer as PrayerName);
-      setTimeToNextPrayer((prev) => ({
-        ...prev,
-        name: PRAYER_NAMES[firstPrayer as PrayerName]?.english || firstPrayer,
-      }));
-    } catch (error) {
-      console.error("Error calculating tomorrow prayer times:", error);
-      setErrorMsg("Error calculating tomorrow prayer times");
+      const firstPrayer = tomorrowPrayersList[0];
+      if (firstPrayer && firstPrayer.time) {
+        setNextPrayer(firstPrayer.name as PrayerName);
+        setTimeToNextPrayer(prev => ({
+          ...prev,
+          name: PRAYER_NAMES[firstPrayer.name]?.english || firstPrayer.name
+        }));
+      }
     }
-  }, [coordinates]);
+  }, [prayerTimes, isLoading, coordinates]);
 
   // Get location and calculate prayer times
   const calculatePrayerTimes = useCallback(async () => {
@@ -276,25 +260,28 @@ function PrayerTimesScreen() {
       setIsLoading(true);
       setErrorMsg(null);
 
+      // Request location permissions
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         throw new Error("Permission to access location was denied");
       }
 
+      // Get current location with high accuracy
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.High,
+        timeInterval: 5000,
+        distanceInterval: 10,
       });
 
       if (!location?.coords) {
-        throw new Error(
-          "Could not get location. Please check your GPS settings."
-        );
+        throw new Error("Could not get location. Please check your GPS settings.");
       }
 
       const { latitude, longitude } = location.coords;
       const newCoordinates = new Coordinates(latitude, longitude);
       setCoordinates(newCoordinates);
 
+      // Get location name using reverse geocoding
       try {
         const [address] = await Location.reverseGeocodeAsync({
           latitude,
@@ -313,21 +300,14 @@ function PrayerTimesScreen() {
         }
       } catch (error) {
         console.error("Error getting location name:", error);
-        // Fallback to coordinates if reverse geocoding fails
         setLocationName(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
       }
 
+      const now = new Date();
       const params = CalculationMethod.Karachi();
       params.madhab = Madhab.Hanafi;
 
-      const date = new Date();
-      const calculatedPrayerTimes = new PrayerTimes(
-        newCoordinates,
-        date,
-        params
-      );
-
-      // Create empty object for prayer times
+      const calculatedPrayerTimes = new PrayerTimes(newCoordinates, now, params);
       const prayerTimesWithDates: CustomPrayerTimes = {} as CustomPrayerTimes;
 
       // Handle each prayer time
@@ -339,8 +319,8 @@ function PrayerTimesScreen() {
 
           if (prayerTimeDate) {
             // If prayer time has already passed today, set it for tomorrow
-            if (prayerTimeDate.getTime() < date.getTime()) {
-              const tomorrow = new Date(date);
+            if (prayerTimeDate.getTime() < now.getTime()) {
+              const tomorrow = new Date(now);
               tomorrow.setDate(tomorrow.getDate() + 1);
 
               const tomorrowPrayerTimes = new PrayerTimes(
@@ -384,9 +364,7 @@ function PrayerTimesScreen() {
     } catch (error) {
       console.error("Error calculating prayer times:", error);
       setErrorMsg(
-        error instanceof Error
-          ? error.message
-          : "Error calculating prayer times"
+        error instanceof Error ? error.message : "Error calculating prayer times"
       );
       setTimeToNextPrayer((prev) => ({
         ...prev,
@@ -398,6 +376,47 @@ function PrayerTimesScreen() {
       setIsLoading(false);
     }
   }, [fadeAnim, slideAnim]);
+
+  // Add a background location update effect
+  useEffect(() => {
+    let locationSubscription: Location.LocationSubscription | null = null;
+
+    const startLocationUpdates = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setErrorMsg('Location permission denied');
+          return;
+        }
+
+        // Start watching position
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 300000, // Update every 5 minutes
+            distanceInterval: 100, // Update every 100 meters
+          },
+          (location) => {
+            const { latitude, longitude } = location.coords;
+            setCoordinates(new Coordinates(latitude, longitude));
+            calculatePrayerTimes(); // Recalculate prayer times with new location
+          }
+        );
+      } catch (error) {
+        console.error('Error starting location updates:', error);
+        setErrorMsg('Error updating location');
+      }
+    };
+
+    startLocationUpdates();
+
+    // Cleanup subscription on unmount
+    return () => {
+      if (locationSubscription) {
+        locationSubscription.remove();
+      }
+    };
+  }, []);
 
   // Update countdown timer
   useEffect(() => {
@@ -439,10 +458,11 @@ function PrayerTimesScreen() {
     return () => clearInterval(timer);
   }, [prayerTimes, nextPrayer, isLoading, findNextPrayer]);
 
-  // Find next prayer when prayer times change
+  // Call findNextPrayer whenever prayer times are updated
   useEffect(() => {
-    if (!prayerTimes || isLoading) return;
-    findNextPrayer();
+    if (prayerTimes && !isLoading) {
+      findNextPrayer();
+    }
   }, [prayerTimes, isLoading, findNextPrayer]);
 
   // Initial load
