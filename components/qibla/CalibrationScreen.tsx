@@ -1,27 +1,45 @@
 import React from 'react';
-import { View, Animated, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import Animated, { 
+  useAnimatedStyle, 
+  withRepeat, 
+  withSequence, 
+  withTiming,
+  useSharedValue,
+  withDelay
+} from 'react-native-reanimated';
 import { ThemedText } from '../ThemedText';
 import { FontAwesome, FontAwesome5 } from '@expo/vector-icons';
 
 interface CalibrationScreenProps {
-  pulseValue: Animated.Value;
+  progress: number;
 }
 
-export const CalibrationScreen: React.FC<CalibrationScreenProps> = ({ pulseValue }) => {
+export const CalibrationScreen: React.FC<CalibrationScreenProps> = ({ progress }) => {
+  const scale = useSharedValue(1);
+  const opacity = useSharedValue(1);
+
+  React.useEffect(() => {
+    scale.value = withRepeat(
+      withSequence(
+        withTiming(1.2, { duration: 1000 }),
+        withTiming(1, { duration: 1000 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{ scale: scale.value }],
+      opacity: opacity.value,
+    };
+  });
+
   return (
     <View style={styles.container}>
-      <Animated.View
-        style={[
-          styles.iconContainer,
-          {
-            transform: [{ scale: pulseValue }],
-            opacity: pulseValue.interpolate({
-              inputRange: [1, 1.2],
-              outputRange: [1, 0.7],
-            }),
-          }
-        ]}
-      >
+      <Animated.View style={[styles.iconContainer, animatedStyle]}>
         <FontAwesome
           name="compass"
           size={70}

@@ -1,65 +1,81 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { View, StyleSheet } from 'react-native';
+import Animated, { 
+  useAnimatedStyle, 
+  withSpring, 
+  withTiming, 
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  Easing
+} from 'react-native-reanimated';
 import { useQiblaDirection } from './hooks/useQiblaDirection';
 import { MaterialIcons, FontAwesome } from '@expo/vector-icons';
 import { ErrorScreen } from './ErrorScreen';
 import { CalibrationScreen } from './CalibrationScreen';
+import { ThemedText } from '../ThemedText';
 
 const QiblaCompass = () => {
   const { 
     heading, 
-    qiblaBearing,
-    isCalibrating,
-    calibrationProgress,
-    errorMsg,
-    sensorAvailable,
-    hasPermissions,
-    retryCalibration
+    qiblaBearing, 
+    isCalibrating, 
+    calibrationProgress, 
+    errorMsg, 
+    sensorAvailable, 
+    hasPermissions, 
+    retryCalibration 
   } = useQiblaDirection();
 
-  const rotateAnim = React.useRef(new Animated.Value(0)).current;
-  const arrowAnim = React.useRef(new Animated.Value(0)).current;
-  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+  const rotateAnim = useSharedValue(0);
+  const arrowAnim = useSharedValue(0);
+  const pulseAnim = useSharedValue(1);
 
   useEffect(() => {
-    Animated.timing(rotateAnim, {
-      toValue: heading,
+    rotateAnim.value = withTiming(heading, {
       duration: 300,
       easing: Easing.out(Easing.quad),
-      useNativeDriver: true,
-    }).start();
+    });
   }, [heading]);
 
   useEffect(() => {
     if (qiblaBearing !== null) {
-      Animated.spring(arrowAnim, {
-        toValue: (heading - qiblaBearing + 360) % 360,
-        speed: 20,
-        useNativeDriver: true,
-      }).start();
+      arrowAnim.value = withSpring((heading - qiblaBearing + 360) % 360, {
+        damping: 20,
+      });
     }
   }, [heading, qiblaBearing]);
 
   useEffect(() => {
     if (isCalibrating) {
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, {
-            toValue: 1.2,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(pulseAnim, {
-            toValue: 1,
-            duration: 1000,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
+      pulseAnim.value = withRepeat(
+        withSequence(
+          withTiming(1.2, { duration: 1000 }),
+          withTiming(1, { duration: 1000 })
+        ),
+        -1,
+        true
+      );
     } else {
-      pulseAnim.setValue(1);
+      pulseAnim.value = 1;
     }
   }, [isCalibrating]);
+
+  const compassStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{
+        rotate: `${rotateAnim.value}deg`
+      }]
+    };
+  });
+
+  const arrowStyle = useAnimatedStyle(() => {
+    return {
+      transform: [{
+        rotate: `${arrowAnim.value}deg`
+      }]
+    };
+  });
 
   if (!sensorAvailable || !hasPermissions || errorMsg) {
     return (
@@ -73,25 +89,13 @@ const QiblaCompass = () => {
   }
 
   if (isCalibrating) {
-    return <CalibrationScreen pulseValue={pulseAnim} />;
+    return <CalibrationScreen progress={calibrationProgress} />;
   }
 
   return (
     <View style={styles.container}>
-      <Animated.View style={[styles.compass, {
-        transform: [{ rotate: rotateAnim.interpolate({
-          inputRange: [0, 360],
-          outputRange: ['0deg', '360deg']
-        })}]
-      }]}>
-        <FontAwesome name="compass" size={300} color="#2c3e50" />
-        
-        <Animated.View style={[styles.arrow, {
-          transform: [{ rotate: arrowAnim.interpolate({
-            inputRange: [0, 360],
-            outputRange: ['0deg', '360deg']
-          })}]
-        }]}>
+      <Animated.View style={[styles.compass, compassStyle]}>
+        <Animated.View style={[styles.arrow, arrowStyle]}>
           <MaterialIcons name="navigation" size={60} color="#e74c3c" />
         </Animated.View>
       </Animated.View>
@@ -104,10 +108,10 @@ const QiblaCompass = () => {
   );
 };
 
-const InfoRow = ({ icon, label }: { icon: string; label: string }) => (
+const InfoRow = ({ icon, label }: { icon: keyof typeof MaterialIcons.glyphMap; label: string }) => (
   <View style={styles.infoRow}>
-    <MaterialIcons name={icon as any} size={24} color="#2c3e50" />
-    <Text style={styles.infoText}>{label}</Text>
+    <MaterialIcons name={icon} size={24} color="#2c3e50" />
+    <ThemedText style={styles.infoText}>{label}</ThemedText>
   </View>
 );
 
@@ -121,26 +125,22 @@ const styles = StyleSheet.create({
   compass: {
     width: 300,
     height: 300,
-    position: 'relative',
     justifyContent: 'center',
     alignItems: 'center',
   },
   arrow: {
     position: 'absolute',
-    alignSelf: 'center',
   },
   infoPanel: {
-    position: 'absolute',
-    bottom: 50,
-    backgroundColor: 'white',
+    marginTop: 40,
     padding: 20,
-    borderRadius: 20,
-    width: '80%',
-    elevation: 5,
+    backgroundColor: 'white',
+    borderRadius: 15,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   infoRow: {
     flexDirection: 'row',
@@ -148,10 +148,10 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   infoText: {
-    marginLeft: 12,
+    marginLeft: 10,
     fontSize: 16,
     color: '#2c3e50',
   },
 });
 
-export default QiblaCompass; 
+export default QiblaCompass;
